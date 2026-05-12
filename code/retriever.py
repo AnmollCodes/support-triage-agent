@@ -24,7 +24,6 @@ from rank_bm25 import BM25Okapi
 from config import RETRIEVER_CFG, RetrieverConfig
 from models import CorpusChunk, RetrievedDoc
 
-
 # ──────────────────────────────────────────────────────────────────
 # Tokenisation helpers
 # ──────────────────────────────────────────────────────────────────
@@ -50,6 +49,7 @@ def _tokenise(text: str) -> List[str]:
 # TF-IDF helpers (no sklearn dependency)
 # ──────────────────────────────────────────────────────────────────
 
+
 def _build_tfidf(chunks: List[CorpusChunk]):
     """
     Returns:
@@ -68,14 +68,12 @@ def _build_tfidf(chunks: List[CorpusChunk]):
             df[term] += 1
 
     idf: Dict[str, float] = {
-        term: math.log((N + 1) / (freq + 1)) + 1.0
-        for term, freq in df.items()
+        term: math.log((N + 1) / (freq + 1)) + 1.0 for term, freq in df.items()
     }
     return doc_tf, idf
 
 
-def _tfidf_score(query_tokens: List[str], tf: Counter,
-                 idf: Dict[str, float]) -> float:
+def _tfidf_score(query_tokens: List[str], tf: Counter, idf: Dict[str, float]) -> float:
     """Cosine-like TF-IDF similarity (dot-product, unnormalised)."""
     score = 0.0
     for t in query_tokens:
@@ -88,6 +86,7 @@ def _tfidf_score(query_tokens: List[str], tf: Counter,
 # Main Retriever class
 # ──────────────────────────────────────────────────────────────────
 
+
 class HybridRetriever:
     """
     Builds BM25 + TF-IDF indices over the corpus.
@@ -99,22 +98,20 @@ class HybridRetriever:
         chunks: List[CorpusChunk],
         cfg: RetrieverConfig = RETRIEVER_CFG,
     ) -> None:
-        self.cfg    = cfg
+        self.cfg = cfg
         self.chunks = chunks
 
         # Build per-company sub-indices and a global index
-        self._indices: Dict[str, Tuple] = {}   # company → (bm25, doc_tf, idf, sub_chunks)
+        self._indices: Dict[str, Tuple] = {}  # company → (bm25, doc_tf, idf, sub_chunks)
         self._global: Tuple | None = None
 
         self._build_indices()
 
     # ── Index construction ─────────────────────────────────────────
 
-    def _build_single_index(
-        self, chunks: List[CorpusChunk]
-    ) -> Tuple:
+    def _build_single_index(self, chunks: List[CorpusChunk]) -> Tuple:
         tokenised = [_tokenise(c.full_text) for c in chunks]
-        bm25     = BM25Okapi(tokenised)
+        bm25 = BM25Okapi(tokenised)
         doc_tf, idf = _build_tfidf(chunks)
         return bm25, doc_tf, idf, chunks
 
@@ -142,35 +139,30 @@ class HybridRetriever:
         if not q_tokens:
             return []
 
-        bm25_scores  = bm25.get_scores(q_tokens)
-        tfidf_scores = [
-            _tfidf_score(q_tokens, tf, idf) for tf in doc_tf
-        ]
+        bm25_scores = bm25.get_scores(q_tokens)
+        tfidf_scores = [_tfidf_score(q_tokens, tf, idf) for tf in doc_tf]
 
         # Normalise to [0, 1]
-        bm25_max  = max(bm25_scores)  if bm25_scores.any()   else 1.0
-        tfidf_max = max(tfidf_scores) if any(tfidf_scores)   else 1.0
-        bm25_max  = bm25_max  if bm25_max  > 0 else 1.0
+        bm25_max = max(bm25_scores) if bm25_scores.any() else 1.0
+        tfidf_max = max(tfidf_scores) if any(tfidf_scores) else 1.0
+        bm25_max = bm25_max if bm25_max > 0 else 1.0
         tfidf_max = tfidf_max if tfidf_max > 0 else 1.0
 
         combined = [
-            self.cfg.bm25_weight  * (b / bm25_max)
-            + self.cfg.tfidf_weight * (t / tfidf_max)
+            self.cfg.bm25_weight * (b / bm25_max) + self.cfg.tfidf_weight * (t / tfidf_max)
             for b, t in zip(bm25_scores, tfidf_scores)
         ]
 
         # Sort descending
-        ranked = sorted(
-            enumerate(combined), key=lambda x: x[1], reverse=True
-        )
+        ranked = sorted(enumerate(combined), key=lambda x: x[1], reverse=True)
 
         results = []
         seen_urls: set = set()
-        for idx, score in ranked[:top_k * 3]:            # over-fetch, then dedupe
+        for idx, score in ranked[: top_k * 3]:  # over-fetch, then dedupe
             if score < self.cfg.min_score_threshold:
                 break
             chunk = sub_chunks[idx]
-            key   = (chunk.url, chunk.title)
+            key = (chunk.url, chunk.title)
             if key in seen_urls:
                 continue
             seen_urls.add(key)
@@ -197,9 +189,7 @@ class HybridRetriever:
 
         # Company-scoped search
         if company and company in self._indices:
-            results = self._score_index(
-                query, self._indices[company], k
-            )
+            results = self._score_index(query, self._indices[company], k)
             if results:
                 return results
 
@@ -223,7 +213,7 @@ class HybridRetriever:
                 + (f" — {doc.chunk.section}" if doc.chunk.section else "")
                 + f" (score={doc.score})"
             )
-            body = doc.chunk.content[:600]          # cap per-doc
+            body = doc.chunk.content[:600]  # cap per-doc
             entry = f"{header}\n{body}\n"
             if total + len(entry) > max_chars:
                 break

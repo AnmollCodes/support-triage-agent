@@ -30,16 +30,17 @@ from pathlib import Path
 from typing import List
 
 # ── Handle Windows UTF-8 encoding for Rich ────────────────────────────────
-if sys.platform == 'win32':
+if sys.platform == "win32":
     # Force UTF-8 output on Windows to prevent Unicode errors with Rich
     import io
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
 # ── Path setup: works whether run from project root OR code/ directory ──────
-_THIS_FILE  = Path(__file__).resolve()
-_CODE_DIR   = _THIS_FILE.parent
-_PROJ_ROOT  = _CODE_DIR.parent
+_THIS_FILE = Path(__file__).resolve()
+_CODE_DIR = _THIS_FILE.parent
+_PROJ_ROOT = _CODE_DIR.parent
 sys.path.insert(0, str(_CODE_DIR))
 
 from rich.console import Console
@@ -50,18 +51,28 @@ from rich.text import Text
 from corpus import load_or_build_corpus
 from retriever import HybridRetriever, RETRIEVER_CFG
 from models import (
-    SupportTicket, TriageResult,
-    TicketStatus, RequestType,
-    SentimentSignal, UrgencySignal, ConfidenceSignal,
-    LanguageSignal, CorpusGapSignal, QualitySignal, VIPSignal,
+    SupportTicket,
+    TriageResult,
+    TicketStatus,
+    RequestType,
+    SentimentSignal,
+    UrgencySignal,
+    ConfidenceSignal,
+    LanguageSignal,
+    CorpusGapSignal,
+    QualitySignal,
+    VIPSignal,
 )
 from response_engine import GroundedResponseEngine
 from agent import infer_company
 
 # ── Intelligence features ──────────────────────────────────────────────────
 from intelligence import (
-    analyse_sentiment, compute_urgency,
-    detect_vip, analyse_language, compute_confidence,
+    analyse_sentiment,
+    compute_urgency,
+    detect_vip,
+    analyse_language,
+    compute_confidence,
 )
 from corpus_gap_detector import detect_corpus_gap
 from quality_validator import validate_response
@@ -83,8 +94,14 @@ console = Console()
 
 # Required output columns
 OUTPUT_COLS = [
-    "issue", "subject", "company",
-    "response", "product_area", "status", "request_type", "justification",
+    "issue",
+    "subject",
+    "company",
+    "response",
+    "product_area",
+    "status",
+    "request_type",
+    "justification",
 ]
 
 
@@ -92,38 +109,41 @@ OUTPUT_COLS = [
 # I/O
 # ─────────────────────────────────────────────────────────────────────────
 
+
 def read_tickets(path: Path) -> List[SupportTicket]:
     tickets: List[SupportTicket] = []
     with open(path, encoding="utf-8", newline="") as f:
         reader = csv.DictReader(f)
         for row in reader:
             norm = {k.strip().lower(): (v or "").strip() for k, v in row.items()}
-            tickets.append(SupportTicket(
-                issue   = norm.get("issue", ""),
-                subject = norm.get("subject", ""),
-                company = norm.get("company", "None"),
-            ))
+            tickets.append(
+                SupportTicket(
+                    issue=norm.get("issue", ""),
+                    subject=norm.get("subject", ""),
+                    company=norm.get("company", "None"),
+                )
+            )
     return tickets
 
 
-def write_output(tickets: List[SupportTicket],
-                 results: List[TriageResult],
-                 path: Path) -> None:
+def write_output(tickets: List[SupportTicket], results: List[TriageResult], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=OUTPUT_COLS, quoting=csv.QUOTE_ALL)
         writer.writeheader()
         for ticket, result in zip(tickets, results):
-            writer.writerow({
-                "issue":         ticket.issue,
-                "subject":       ticket.subject,
-                "company":       ticket.company,
-                "response":      result.response,
-                "product_area":  result.product_area,
-                "status":        result.status.value.capitalize(),
-                "request_type":  result.request_type.value,
-                "justification": result.justification,
-            })
+            writer.writerow(
+                {
+                    "issue": ticket.issue,
+                    "subject": ticket.subject,
+                    "company": ticket.company,
+                    "response": result.response,
+                    "product_area": result.product_area,
+                    "status": result.status.value.capitalize(),
+                    "request_type": result.request_type.value,
+                    "justification": result.justification,
+                }
+            )
     console.print(f"  [green]✓[/green] output.csv  →  {path}")
 
 
@@ -131,45 +151,45 @@ def write_output(tickets: List[SupportTicket],
 # Enrichment — attaches all intelligence signals
 # ─────────────────────────────────────────────────────────────────────────
 
-def enrich(ticket: SupportTicket,
-           result: TriageResult,
-           docs: list) -> TriageResult:
+
+def enrich(ticket: SupportTicket, result: TriageResult, docs: list) -> TriageResult:
     """
     Pure enrichment pass: attaches 8 intelligence signals to a TriageResult.
     Never changes product_area or response — only adds signal fields.
     Auto-escalates if quality score is critically low.
     """
     retrieval_scores = [d.score for d in docs] if docs else []
-    co = (ticket.company if ticket.company not in ("None", "", None)
-          else infer_company(ticket))
+    co = ticket.company if ticket.company not in ("None", "", None) else infer_company(ticket)
 
-    result.sentiment  = analyse_sentiment(ticket)
-    result.language   = analyse_language(ticket)
+    result.sentiment = analyse_sentiment(ticket)
+    result.language = analyse_language(ticket)
     result.corpus_gap = detect_corpus_gap(ticket, docs, co)
     result.confidence = compute_confidence(
-        retrieval_scores  = retrieval_scores,
-        is_escalated      = (result.status == TicketStatus.ESCALATED),
-        corpus_gap        = result.corpus_gap.gap_detected,
-        language          = result.language,
-        ticket            = ticket,
+        retrieval_scores=retrieval_scores,
+        is_escalated=(result.status == TicketStatus.ESCALATED),
+        corpus_gap=result.corpus_gap.gap_detected,
+        language=result.language,
+        ticket=ticket,
     )
     result.urgency = compute_urgency(
-        ticket       = ticket,
-        sentiment    = result.sentiment,
-        is_escalated = (result.status == TicketStatus.ESCALATED),
+        ticket=ticket,
+        sentiment=result.sentiment,
+        is_escalated=(result.status == TicketStatus.ESCALATED),
     )
-    result.vip     = detect_vip(ticket)
+    result.vip = detect_vip(ticket)
     result.quality = validate_response(
-        ticket   = ticket,
-        response = result.response,
-        status   = result.status.value,
-        docs     = docs,
+        ticket=ticket,
+        response=result.response,
+        status=result.status.value,
+        docs=docs,
     )
 
     # Auto-escalate critically low quality replied tickets
-    if (result.quality.score < 0.4
-            and result.status == TicketStatus.REPLIED
-            and result.request_type != RequestType.INVALID):
+    if (
+        result.quality.score < 0.4
+        and result.status == TicketStatus.REPLIED
+        and result.request_type != RequestType.INVALID
+    ):
         result.status = TicketStatus.ESCALATED
         result.justification += " [AUTO-ESCALATED: quality validator score < 0.4]"
 
@@ -179,6 +199,7 @@ def enrich(ticket: SupportTicket,
 # ─────────────────────────────────────────────────────────────────────────
 # Main
 # ─────────────────────────────────────────────────────────────────────────
+
 
 def main() -> None:
     import argparse
@@ -191,35 +212,31 @@ def main() -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
-    parser.add_argument("--input",  type=Path,
-                        default=ISSUES_DIR / "support_tickets.csv")
-    parser.add_argument("--output", type=Path,
-                        default=OUTPUT_DIR / "output.csv")
-    parser.add_argument("--sample", action="store_true",
-                        help="Run on sample_support_tickets.csv")
-    parser.add_argument("--rebuild", action="store_true",
-                        help="Force re-scrape the support corpus")
-    parser.add_argument("--verbose", action="store_true",
-                        help="Show enrichment signals for each ticket")
-    parser.add_argument("--no-dashboard", action="store_true",
-                        help="Skip the terminal analytics dashboard")
+    parser.add_argument("--input", type=Path, default=ISSUES_DIR / "support_tickets.csv")
+    parser.add_argument("--output", type=Path, default=OUTPUT_DIR / "output.csv")
+    parser.add_argument("--sample", action="store_true", help="Run on sample_support_tickets.csv")
+    parser.add_argument("--rebuild", action="store_true", help="Force re-scrape the support corpus")
+    parser.add_argument(
+        "--verbose", action="store_true", help="Show enrichment signals for each ticket"
+    )
+    parser.add_argument(
+        "--no-dashboard", action="store_true", help="Skip the terminal analytics dashboard"
+    )
     args = parser.parse_args()
 
     if args.sample:
         args.input = ISSUES_DIR / "sample_support_tickets.csv"
 
-    out_dir        = args.output.parent
+    out_dir = args.output.parent
     analytics_path = out_dir / "analytics_report.csv"
-    audit_path     = out_dir / "audit_trail.csv"
-    faq_dir        = out_dir / "faq"
+    audit_path = out_dir / "audit_trail.csv"
+    faq_dir = out_dir / "faq"
     dashboard_path = out_dir / "dashboard.html"
     out_dir.mkdir(parents=True, exist_ok=True)
 
     # ── Banner ───────────────────────────────────────────────────────────
     console.print()
-    console.print(Rule(
-        "[bold cyan]  Support Triage Agent  ·  World-Class Edition  [/bold cyan]"
-    ))
+    console.print(Rule("[bold cyan]  Support Triage Agent  ·  World-Class Edition  [/bold cyan]"))
     console.print("[dim]  HackerRank · Claude · Visa  |  18 intelligence features[/dim]")
     console.print()
 
@@ -228,6 +245,7 @@ def main() -> None:
     # ═══════════════════════════════════════
     console.print("[bold]1/5  Knowledge Corpus[/bold]")
     from scraper import build_corpus
+
     corpus = build_corpus(force=args.rebuild)
     companies = sorted(set(c.source for c in corpus))
     console.print(
@@ -262,13 +280,14 @@ def main() -> None:
     api_key = os.environ.get("ANTHROPIC_API_KEY", "")
     if api_key:
         from agent import TriageAgent
-        engine  = TriageAgent(retriever)
+
+        engine = TriageAgent(retriever)
         run_one = engine.triage
-        mode    = "Claude Sonnet (LLM mode)"
+        mode = "Claude Sonnet (LLM mode)"
     else:
         g_engine = GroundedResponseEngine(retriever)
-        run_one  = g_engine.process
-        mode     = "Grounded deterministic (no API key needed)"
+        run_one = g_engine.process
+        mode = "Grounded deterministic (no API key needed)"
 
     console.print(f"[bold]4/5  Triaging[/bold]  [cyan]{mode}[/cyan]\n")
     console.print(
@@ -277,12 +296,12 @@ def main() -> None:
     )
     console.print("  " + "─" * 98)
 
-    results:     List[TriageResult]    = []
-    all_docs:    list                  = []
-    churns:      List[ChurnRiskResult] = []
-    healths:     List[HealthScoreResult] = []
-    pii_risks:   List[str]             = []
-    faq_entries: list                  = []
+    results: List[TriageResult] = []
+    all_docs: list = []
+    churns: List[ChurnRiskResult] = []
+    healths: List[HealthScoreResult] = []
+    pii_risks: List[str] = []
+    faq_entries: list = []
     audit = AuditTrail(audit_path)
 
     for i, ticket in enumerate(tickets, 1):
@@ -291,10 +310,13 @@ def main() -> None:
             result = run_one(ticket)
 
             # 4b. Retrieve docs for enrichment
-            co    = (ticket.company if ticket.company not in ("None", "", None)
-                     else infer_company(ticket))
+            co = (
+                ticket.company
+                if ticket.company not in ("None", "", None)
+                else infer_company(ticket)
+            )
             query = f"{ticket.subject} {ticket.issue}".strip()
-            docs  = retriever.retrieve(query, company=co, top_k=5)
+            docs = retriever.retrieve(query, company=co, top_k=5)
             all_docs.append(docs)
 
             # 4c. Intelligence enrichment (8 signals)
@@ -311,10 +333,10 @@ def main() -> None:
             # Feature 11: Tone personalization (safe — checks for duplicate openers)
             tone_profile = detect_tone_profile(ticket)
             result.response = personalize_response(
-                response     = result.response,
-                profile      = tone_profile,
-                request_type = result.request_type.value,
-                status       = result.status.value,
+                response=result.response,
+                profile=tone_profile,
+                request_type=result.request_type.value,
+                status=result.status.value,
             )
 
             # Feature 15: Prevention tip (appended only for replied tickets)
@@ -334,30 +356,51 @@ def main() -> None:
 
             # Feature 14: Audit trail entry
             audit.record(
-                ticket_num = i,
-                ticket     = ticket,
-                result     = result,
-                pii_risk   = pii_report.risk_level,
-                churn_score= churn.churn_risk_score,
+                ticket_num=i,
+                ticket=ticket,
+                result=result,
+                pii_risk=pii_report.risk_level,
+                churn_score=churn.churn_risk_score,
             )
 
             results.append(result)
 
             # Progress line
-            st_style   = "green"   if result.status == TicketStatus.REPLIED else "red"
-            st_label   = "✓ replied   " if result.status == TicketStatus.REPLIED else "⚠ escalated "
+            st_style = "green" if result.status == TicketStatus.REPLIED else "red"
+            st_label = "✓ replied   " if result.status == TicketStatus.REPLIED else "⚠ escalated "
             tier_style = {
-                "P0_Critical": "bold red", "P1_High": "yellow",
-                "P2_Medium":   "cyan",     "P3_Low":  "dim",
+                "P0_Critical": "bold red",
+                "P1_High": "yellow",
+                "P2_Medium": "cyan",
+                "P3_Low": "dim",
             }.get(result.urgency.tier.value, "white")
             sent_style = {
-                "angry": "red", "frustrated": "yellow",
-                "distressed": "magenta", "neutral": "dim", "positive": "green",
+                "angry": "red",
+                "frustrated": "yellow",
+                "distressed": "magenta",
+                "neutral": "dim",
+                "positive": "green",
             }.get(result.sentiment.sentiment.value, "white")
-            conf_c = "green" if result.confidence.score >= 0.7 else "yellow" if result.confidence.score >= 0.4 else "red"
-            qual_c = "green" if result.quality.score    >= 0.7 else "yellow" if result.quality.score    >= 0.4 else "red"
-            hlth_c = "green" if health.health_score     >= 75  else "yellow" if health.health_score     >= 50  else "red"
-            chrn_c = "red"   if churn.churn_risk_score  >= 70  else "yellow" if churn.churn_risk_score  >= 45  else "dim"
+            conf_c = (
+                "green"
+                if result.confidence.score >= 0.7
+                else "yellow" if result.confidence.score >= 0.4 else "red"
+            )
+            qual_c = (
+                "green"
+                if result.quality.score >= 0.7
+                else "yellow" if result.quality.score >= 0.4 else "red"
+            )
+            hlth_c = (
+                "green"
+                if health.health_score >= 75
+                else "yellow" if health.health_score >= 50 else "red"
+            )
+            chrn_c = (
+                "red"
+                if churn.churn_risk_score >= 70
+                else "yellow" if churn.churn_risk_score >= 45 else "dim"
+            )
             preview = ticket.issue[:34].replace("\n", " ")
 
             console.print(
@@ -376,24 +419,34 @@ def main() -> None:
                 if result.vip.is_vip:
                     console.print(f"       [yellow]⭐ VIP: {', '.join(result.vip.signals)}[/]")
                 if pii_report.pii_count:
-                    console.print(f"       [magenta]🔐 PII({pii_report.risk_level}): {', '.join(pii_report.pii_types_found)}[/]")
+                    console.print(
+                        f"       [magenta]🔐 PII({pii_report.risk_level}): {', '.join(pii_report.pii_types_found)}[/]"
+                    )
                 if result.language.injection_in_foreign:
-                    console.print(f"       [red]🌍 INJECTION: {result.language.translation_hint}[/]")
+                    console.print(
+                        f"       [red]🌍 INJECTION: {result.language.translation_hint}[/]"
+                    )
                 if result.corpus_gap.gap_detected:
-                    console.print(f"       [blue]📚 Gap: {result.corpus_gap.suggested_doc_title[:60]}[/]")
+                    console.print(
+                        f"       [blue]📚 Gap: {result.corpus_gap.suggested_doc_title[:60]}[/]"
+                    )
                 if churn.churn_risk_score >= 45:
-                    console.print(f"       [red]💰 Churn {churn.churn_risk_score}/100 — {churn.retention_priority}[/]")
+                    console.print(
+                        f"       [red]💰 Churn {churn.churn_risk_score}/100 — {churn.retention_priority}[/]"
+                    )
 
         except Exception as exc:
             console.print(f"  {i:>3}  [red]✗ ERROR: {exc}[/red]")
             if args.verbose:
-                import traceback; traceback.print_exc()
+                import traceback
+
+                traceback.print_exc()
             fallback = TriageResult(
-                status        = TicketStatus.ESCALATED,
-                product_area  = "general_support",
-                response      = "An unexpected error occurred processing this ticket. A human agent will review it promptly.",
-                justification = f"Processing error: {exc}",
-                request_type  = RequestType.PRODUCT_ISSUE,
+                status=TicketStatus.ESCALATED,
+                product_area="general_support",
+                response="An unexpected error occurred processing this ticket. A human agent will review it promptly.",
+                justification=f"Processing error: {exc}",
+                request_type=RequestType.PRODUCT_ISSUE,
             )
             results.append(fallback)
             all_docs.append([])
@@ -413,7 +466,9 @@ def main() -> None:
         results[idx].incident_cluster_id = cid
     if incidents:
         for inc in incidents:
-            sc = {"SEV1": "bold red", "SEV2": "bold yellow", "SEV3": "cyan"}.get(inc.severity.value, "white")
+            sc = {"SEV1": "bold red", "SEV2": "bold yellow", "SEV3": "cyan"}.get(
+                inc.severity.value, "white"
+            )
             console.print(f"  [bold]🚨 Incident[/bold] [{sc}]{inc.cluster_id}[/]  {inc.title}")
     else:
         console.print("  [green]✓ No incident clusters detected[/green]")
@@ -448,8 +503,12 @@ def main() -> None:
         console.print(f"  [green]✓[/green] faq/ ({len(faq_entries)} entries)  →  {faq_dir}/")
 
     generate_html_dashboard(
-        tickets=tickets, results=results, incidents=incidents,
-        churns=churns, healths=healths, output_path=dashboard_path,
+        tickets=tickets,
+        results=results,
+        incidents=incidents,
+        churns=churns,
+        healths=healths,
+        output_path=dashboard_path,
     )
     console.print(f"  [green]✓[/green] dashboard.html  →  {dashboard_path}")
 
@@ -458,13 +517,13 @@ def main() -> None:
         render_dashboard(tickets, results, incidents)
 
     # ── Summary ──────────────────────────────────────────────────────────
-    total    = len(results)
-    replied  = sum(1 for r in results if r.status == TicketStatus.REPLIED)
+    total = len(results)
+    replied = sum(1 for r in results if r.status == TicketStatus.REPLIED)
     p0_count = sum(1 for r in results if r.urgency.tier.value == "P0_Critical")
-    vip_count= sum(1 for r in results if r.vip.is_vip)
-    inj_count= sum(1 for r in results if r.language.injection_in_foreign)
+    vip_count = sum(1 for r in results if r.vip.is_vip)
+    inj_count = sum(1 for r in results if r.language.injection_in_foreign)
     avg_qual = sum(r.quality.score for r in results) / max(total, 1)
-    avg_hlth = sum(h.health_score  for h in healths)  / max(total, 1)
+    avg_hlth = sum(h.health_score for h in healths) / max(total, 1)
     hi_churn = sum(1 for c in churns if c.churn_risk_score >= 45)
 
     console.print()

@@ -26,16 +26,22 @@ from rich.console import Console
 
 from config import AGENT_CFG, ANTHROPIC_API_KEY, AgentConfig
 from models import (
-    AgentDecision, Company, RequestType,
-    SupportTicket, TicketStatus, TriageResult,
+    AgentDecision,
+    Company,
+    RequestType,
+    SupportTicket,
+    TicketStatus,
+    TriageResult,
 )
 from retriever import HybridRetriever
 from safety import (
-    EscalationReason, build_escalation_response,
-    check_escalation, is_invalid_ticket,
+    EscalationReason,
+    build_escalation_response,
+    check_escalation,
+    is_invalid_ticket,
 )
 
-console = Console(stderr=True)   # all agent logs go to stderr, not stdout
+console = Console(stderr=True)  # all agent logs go to stderr, not stdout
 
 # ─────────────────────────────────────────────────────────────────
 # System prompt  (the "brain" of the agent)
@@ -92,26 +98,29 @@ Definitions:
 _HACKERRANK_TERMS = re.compile(
     r"\b(hackerrank|screen|assess(?:ment)?|code\s+challenge|proctoring|"
     r"test\s+environment|candidate|recruiter|hiring|role-based|skillup|chakra"
-    r"|developer\s+role|library\s+question)\b", re.I
+    r"|developer\s+role|library\s+question)\b",
+    re.I,
 )
 _CLAUDE_TERMS = re.compile(
     r"\b(claude|anthropic|claude\.ai|claude\s+pro|api\s+key|anthropic\s+api"
     r"|claude\s+code|opus|sonnet|haiku|claude\s+model|bedrock|"
-    r"constitutional\s+ai|message\s+limit|token\s+limit|usage\s+policy)\b", re.I
+    r"constitutional\s+ai|message\s+limit|token\s+limit|usage\s+policy)\b",
+    re.I,
 )
 _VISA_TERMS = re.compile(
     r"\b(visa|credit\s+card|debit\s+card|card\s+payment|card\s+declined"
     r"|transaction|merchant|atm|contactless|chip\s+card|card\s+benefits"
-    r"|travel\s+insurance|foreign\s+transaction|rupee|inr|bank)\b", re.I
+    r"|travel\s+insurance|foreign\s+transaction|rupee|inr|bank)\b",
+    re.I,
 )
 
 
 def infer_company(ticket: SupportTicket) -> Optional[str]:
     """Return best-guess company from ticket content when company=None."""
     combined = f"{ticket.issue} {ticket.subject}"
-    hr  = len(_HACKERRANK_TERMS.findall(combined))
-    cl  = len(_CLAUDE_TERMS.findall(combined))
-    vi  = len(_VISA_TERMS.findall(combined))
+    hr = len(_HACKERRANK_TERMS.findall(combined))
+    cl = len(_CLAUDE_TERMS.findall(combined))
+    vi = len(_VISA_TERMS.findall(combined))
 
     best = max(hr, cl, vi)
     if best == 0:
@@ -127,7 +136,7 @@ def infer_company(ticket: SupportTicket) -> Optional[str]:
 # Result validation / normalisation
 # ─────────────────────────────────────────────────────────────────
 
-_VALID_STATUSES      = {"replied", "escalated"}
+_VALID_STATUSES = {"replied", "escalated"}
 _VALID_REQUEST_TYPES = {"product_issue", "feature_request", "bug", "invalid"}
 
 
@@ -166,10 +175,10 @@ def _parse_llm_response(raw: str) -> AgentDecision:
             raise ValueError(f"LLM returned non-JSON: {raw[:200]}")
 
     # Normalise enum fields
-    data["status"]       = _normalise_status(data.get("status", "escalated"))
+    data["status"] = _normalise_status(data.get("status", "escalated"))
     data["request_type"] = _normalise_request_type(data.get("request_type", "product_issue"))
-    data.setdefault("product_area",  "General Support")
-    data.setdefault("response",      "We have received your request.")
+    data.setdefault("product_area", "General Support")
+    data.setdefault("response", "We have received your request.")
     data.setdefault("justification", "Processed by triage agent.")
     data.setdefault("escalation_reason", None)
 
@@ -180,6 +189,7 @@ def _parse_llm_response(raw: str) -> AgentDecision:
 # Triage Agent
 # ─────────────────────────────────────────────────────────────────
 
+
 class TriageAgent:
     """Stateless support triage agent backed by Claude claude-sonnet-4-20250514."""
 
@@ -189,30 +199,29 @@ class TriageAgent:
         cfg: AgentConfig = AGENT_CFG,
     ) -> None:
         if not ANTHROPIC_API_KEY:
-            raise EnvironmentError(
-                "ANTHROPIC_API_KEY is not set. Export it before running."
-            )
-        
+            raise EnvironmentError("ANTHROPIC_API_KEY is not set. Export it before running.")
+
         # Auto-initialize retriever if not provided
         if retriever is None:
             from corpus import load_or_build_corpus
             from config import RETRIEVER_CFG
+
             chunks = load_or_build_corpus(force_scrape=False)
             retriever = HybridRetriever(chunks, RETRIEVER_CFG)
-        
+
         self.retriever = retriever
-        self.cfg       = cfg
-        self._client   = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+        self.cfg = cfg
+        self._client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
     # ── Main entry point ──────────────────────────────────────────
 
     def process(self, ticket: SupportTicket | dict) -> TriageResult:
         """
         Process a support ticket (wrapper for triage that handles dict input).
-        
+
         Args:
             ticket: Either a SupportTicket object or a dict with ticket data
-        
+
         Returns:
             TriageResult with triage decision and response
         """
@@ -227,48 +236,44 @@ class TriageAgent:
         # ── Step 1: Invalid ticket check ──────────────────────────
         if is_invalid_ticket(ticket):
             return TriageResult(
-                status       = TicketStatus.REPLIED,
-                product_area = "General Support",
-                response     = (
+                status=TicketStatus.REPLIED,
+                product_area="General Support",
+                response=(
                     "Your message appears to be empty or does not contain a "
                     "recognisable support request. Please describe your issue "
                     "and we will be happy to help."
                 ),
-                justification = "Ticket was empty or contained no actionable content.",
-                request_type  = RequestType.INVALID,
+                justification="Ticket was empty or contained no actionable content.",
+                request_type=RequestType.INVALID,
             )
 
         # ── Step 2: Rule-based safety/escalation pre-screen ───────
         should_escalate, reason = check_escalation(ticket)
         if should_escalate:
             return TriageResult(
-                status       = TicketStatus.ESCALATED,
-                product_area = self._infer_product_area(ticket),
-                response     = build_escalation_response(reason),
-                justification = (
-                    f"Automatically escalated by safety classifier: {reason.value}."
-                ),
-                request_type  = RequestType.PRODUCT_ISSUE,
+                status=TicketStatus.ESCALATED,
+                product_area=self._infer_product_area(ticket),
+                response=build_escalation_response(reason),
+                justification=(f"Automatically escalated by safety classifier: {reason.value}."),
+                request_type=RequestType.PRODUCT_ISSUE,
             )
 
         # ── Step 3: Company inference ──────────────────────────────
         effective_company = (
-            ticket.company
-            if ticket.company not in ("None", "", None)
-            else infer_company(ticket)
+            ticket.company if ticket.company not in ("None", "", None) else infer_company(ticket)
         )
 
         # ── Step 4: Retrieval ──────────────────────────────────────
         query = f"{ticket.subject} {ticket.issue}".strip()
-        docs  = self.retriever.retrieve(
-            query, company=effective_company, top_k=self.cfg.top_k if hasattr(self.cfg, "top_k") else 6
+        docs = self.retriever.retrieve(
+            query,
+            company=effective_company,
+            top_k=self.cfg.top_k if hasattr(self.cfg, "top_k") else 6,
         )
         corpus_context = self.retriever.format_for_prompt(docs)
 
         # ── Step 5: LLM call ──────────────────────────────────────
-        user_message = self._build_user_message(
-            ticket, effective_company, corpus_context
-        )
+        user_message = self._build_user_message(ticket, effective_company, corpus_context)
 
         decision = self._call_llm(user_message)
 
@@ -279,11 +284,11 @@ class TriageAgent:
 
         # ── Step 7: Convert to TriageResult ───────────────────────
         return TriageResult(
-            status       = TicketStatus(decision.status),
-            product_area = decision.product_area,
-            response     = decision.response,
-            justification = decision.justification,
-            request_type  = RequestType(decision.request_type),
+            status=TicketStatus(decision.status),
+            product_area=decision.product_area,
+            response=decision.response,
+            justification=decision.justification,
+            request_type=RequestType(decision.request_type),
         )
 
     # ── Helpers ───────────────────────────────────────────────────
@@ -318,46 +323,42 @@ class TriageAgent:
         for attempt in range(retries):
             try:
                 msg = self._client.messages.create(
-                    model       = self.cfg.model,
-                    max_tokens  = self.cfg.max_tokens,
-                    temperature = self.cfg.temperature,
-                    system      = SYSTEM_PROMPT,
-                    messages    = [{"role": "user", "content": user_message}],
+                    model=self.cfg.model,
+                    max_tokens=self.cfg.max_tokens,
+                    temperature=self.cfg.temperature,
+                    system=SYSTEM_PROMPT,
+                    messages=[{"role": "user", "content": user_message}],
                 )
                 raw = msg.content[0].text if msg.content else ""
                 return _parse_llm_response(raw)
 
             except anthropic.APIStatusError as exc:
                 if exc.status_code in (429, 529) and attempt < retries - 1:
-                    wait = 2 ** attempt * 5
-                    console.print(
-                        f"[yellow]Rate-limited; retrying in {wait}s…[/yellow]"
-                    )
+                    wait = 2**attempt * 5
+                    console.print(f"[yellow]Rate-limited; retrying in {wait}s…[/yellow]")
                     time.sleep(wait)
                     continue
                 raise
 
             except (ValueError, json.JSONDecodeError) as exc:
-                console.print(
-                    f"[yellow]JSON parse error on attempt {attempt+1}: {exc}[/yellow]"
-                )
+                console.print(f"[yellow]JSON parse error on attempt {attempt+1}: {exc}[/yellow]")
                 if attempt == retries - 1:
                     # Return safe default on final failure
                     return AgentDecision(
-                        status        = "escalated",
-                        product_area  = "General Support",
-                        response      = "We have received your ticket and a human agent will follow up.",
-                        justification = "LLM response could not be parsed after multiple attempts.",
-                        request_type  = "product_issue",
+                        status="escalated",
+                        product_area="General Support",
+                        response="We have received your ticket and a human agent will follow up.",
+                        justification="LLM response could not be parsed after multiple attempts.",
+                        request_type="product_issue",
                     )
 
         # Should not reach here
         return AgentDecision(
-            status        = "escalated",
-            product_area  = "General Support",
-            response      = "Your ticket has been escalated to a human agent.",
-            justification = "Unexpected error in LLM call.",
-            request_type  = "product_issue",
+            status="escalated",
+            product_area="General Support",
+            response="Your ticket has been escalated to a human agent.",
+            justification="Unexpected error in LLM call.",
+            request_type="product_issue",
         )
 
 

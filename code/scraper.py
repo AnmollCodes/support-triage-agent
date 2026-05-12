@@ -25,8 +25,11 @@ from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskID
 
 from config import (
-    COLLECTION_URLS, CORPUS_CACHE, SCRAPER_CFG,
-    DATA_DIR, ScraperConfig,
+    COLLECTION_URLS,
+    CORPUS_CACHE,
+    SCRAPER_CFG,
+    DATA_DIR,
+    ScraperConfig,
 )
 from models import CorpusChunk
 
@@ -37,10 +40,12 @@ console = Console()
 # HTML → clean text helpers
 # ──────────────────────────────────────────────────────────────────
 
+
 def _extract_text(soup: BeautifulSoup) -> str:
     """Remove scripts/styles and return clean visible text."""
-    for tag in soup(["script", "style", "nav", "footer", "header",
-                      "noscript", "iframe", "svg", "form"]):
+    for tag in soup(
+        ["script", "style", "nav", "footer", "header", "noscript", "iframe", "svg", "form"]
+    ):
         tag.decompose()
     text = soup.get_text(separator=" ", strip=True)
     # Collapse excessive whitespace
@@ -58,8 +63,7 @@ def _extract_title(soup: BeautifulSoup, url: str) -> str:
     return urlparse(url).path.split("/")[-1].replace("-", " ").title()
 
 
-def _extract_article_links(soup: BeautifulSoup, base_url: str,
-                            company: str) -> List[str]:
+def _extract_article_links(soup: BeautifulSoup, base_url: str, company: str) -> List[str]:
     """
     Pull article/page hrefs from a collection/category listing page.
     Filters to stay within the same domain & relevant path prefixes.
@@ -85,8 +89,7 @@ def _extract_article_links(soup: BeautifulSoup, base_url: str,
     return links
 
 
-def _chunk_text(text: str, chunk_size: int = 800,
-                overlap: int = 100) -> List[str]:
+def _chunk_text(text: str, chunk_size: int = 800, overlap: int = 100) -> List[str]:
     """Split long text into overlapping chunks (by character count)."""
     if len(text) <= chunk_size:
         return [text]
@@ -101,6 +104,7 @@ def _chunk_text(text: str, chunk_size: int = 800,
 # ──────────────────────────────────────────────────────────────────
 # Core scraper class
 # ──────────────────────────────────────────────────────────────────
+
 
 class SupportScraper:
     def __init__(self, cfg: ScraperConfig = SCRAPER_CFG):
@@ -123,21 +127,16 @@ class SupportScraper:
                 )
                 if resp.status_code == 200:
                     return resp.text
-                console.print(
-                    f"[yellow]  HTTP {resp.status_code} for {url}[/yellow]"
-                )
+                console.print(f"[yellow]  HTTP {resp.status_code} for {url}[/yellow]")
             except Exception as exc:
                 console.print(
-                    f"[yellow]  Request failed ({exc.__class__.__name__}) "
-                    f"for {url}[/yellow]"
+                    f"[yellow]  Request failed ({exc.__class__.__name__}) " f"for {url}[/yellow]"
                 )
         return None
 
     # ── Per-company scrapers ───────────────────────────────────────
 
-    async def _scrape_article(
-        self, url: str, company: str, section: str = ""
-    ) -> List[CorpusChunk]:
+    async def _scrape_article(self, url: str, company: str, section: str = "") -> List[CorpusChunk]:
         """Fetch a single article URL and return chunks."""
         if url in self._seen_urls:
             return []
@@ -149,27 +148,26 @@ class SupportScraper:
 
         soup = BeautifulSoup(html, "html.parser")
         title = _extract_title(soup, url)
-        text  = _extract_text(soup)
+        text = _extract_text(soup)
 
         if len(text) < self.cfg.min_content_length:
             return []
 
         chunks = []
-        for i, chunk in enumerate(_chunk_text(
-            text, self.cfg.chunk_size, 100
-        )):
-            chunks.append(CorpusChunk(
-                source=company,
-                url=url,
-                title=title if i == 0 else f"{title} (cont.)",
-                content=chunk,
-                section=section,
-            ))
+        for i, chunk in enumerate(_chunk_text(text, self.cfg.chunk_size, 100)):
+            chunks.append(
+                CorpusChunk(
+                    source=company,
+                    url=url,
+                    title=title if i == 0 else f"{title} (cont.)",
+                    content=chunk,
+                    section=section,
+                )
+            )
         return chunks
 
     async def _scrape_collection(
-        self, collection_url: str, company: str, progress: Progress,
-        task: TaskID
+        self, collection_url: str, company: str, progress: Progress, task: TaskID
     ) -> List[CorpusChunk]:
         """Fetch an index page and scrape linked articles."""
         html = await self._get(collection_url)
@@ -181,15 +179,13 @@ class SupportScraper:
 
         # For Visa the collection page IS the article
         if company == "Visa":
-            chunks = await self._scrape_article(
-                collection_url, company, section
-            )
+            chunks = await self._scrape_article(collection_url, company, section)
             progress.advance(task)
             return chunks
 
-        article_links = _extract_article_links(
-            soup, collection_url, company
-        )[: self.cfg.max_articles_per_collection]
+        article_links = _extract_article_links(soup, collection_url, company)[
+            : self.cfg.max_articles_per_collection
+        ]
 
         all_chunks: List[CorpusChunk] = []
         for link in article_links:
@@ -219,20 +215,14 @@ class SupportScraper:
                 tasks = {}
                 for company, urls in COLLECTION_URLS.items():
                     total = (
-                        sum(SCRAPER_CFG.max_articles_per_collection
-                            for _ in urls)
+                        sum(SCRAPER_CFG.max_articles_per_collection for _ in urls)
                         if company != "Visa"
                         else len(urls)
                     )
-                    tasks[company] = progress.add_task(
-                        f"Scraping {company}…", total=total
-                    )
+                    tasks[company] = progress.add_task(f"Scraping {company}…", total=total)
 
                 coros = [
-                    self._scrape_collection(
-                        url, company,
-                        progress, tasks[company]
-                    )
+                    self._scrape_collection(url, company, progress, tasks[company])
                     for company, urls in COLLECTION_URLS.items()
                     for url in urls
                 ]
@@ -251,14 +241,13 @@ class SupportScraper:
 # Corpus cache  (JSONL)
 # ──────────────────────────────────────────────────────────────────
 
+
 def save_corpus(chunks: List[CorpusChunk], path: Path = CORPUS_CACHE) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         for chunk in chunks:
             f.write(chunk.model_dump_json() + "\n")
-    console.print(
-        f"[green]✓ Saved {len(chunks):,} chunks → {path}[/green]"
-    )
+    console.print(f"[green]✓ Saved {len(chunks):,} chunks → {path}[/green]")
 
 
 def load_corpus(path: Path = CORPUS_CACHE) -> List[CorpusChunk]:
@@ -284,21 +273,21 @@ def corpus_exists(path: Path = CORPUS_CACHE) -> bool:
 # Convenience: build corpus (scrape then save)
 # ──────────────────────────────────────────────────────────────────
 
+
 def build_corpus(force: bool = False) -> List[CorpusChunk]:
     """
     Build or reload the support corpus.
     Pass force=True to re-scrape even if cache exists.
-    
+
     Always includes the built-in seed corpus as a baseline.
     """
     # Always load seed corpus as baseline
     from seed_corpus import get_seed_corpus
+
     seed = get_seed_corpus()
 
     if not force and corpus_exists():
-        console.print(
-            f"[cyan]Loading cached corpus from {CORPUS_CACHE}…[/cyan]"
-        )
+        console.print(f"[cyan]Loading cached corpus from {CORPUS_CACHE}…[/cyan]")
         cached = load_corpus()
         # Merge: prefer cached (scraped) over seed
         combined = cached + [s for s in seed if s.url not in {c.url for c in cached}]
@@ -315,12 +304,12 @@ def build_corpus(force: bool = False) -> List[CorpusChunk]:
     except Exception as exc:
         console.print(f"[yellow]Scraping failed ({exc}), using seed corpus only.[/yellow]")
         scraped = []
-    
+
     elapsed = time.time() - start
     # Merge scraped with seed
     scraped_urls = {c.url for c in scraped}
     combined = scraped + [s for s in seed if s.url not in scraped_urls]
-    
+
     console.print(
         f"[green]✓ Built corpus: {len(combined):,} chunks "
         f"({len(scraped):,} scraped + {len(seed):,} seed) in {elapsed:.1f}s[/green]"

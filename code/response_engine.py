@@ -19,12 +19,18 @@ import re
 from typing import List, Optional, Tuple
 
 from models import (
-    CorpusChunk, RequestType, RetrievedDoc,
-    SupportTicket, TicketStatus, TriageResult,
+    CorpusChunk,
+    RequestType,
+    RetrievedDoc,
+    SupportTicket,
+    TicketStatus,
+    TriageResult,
 )
 from safety import (
-    EscalationReason, build_escalation_response,
-    check_escalation, is_invalid_ticket,
+    EscalationReason,
+    build_escalation_response,
+    check_escalation,
+    is_invalid_ticket,
 )
 
 # ─────────────────────────────────────────────────────────────────
@@ -33,34 +39,76 @@ from safety import (
 
 _AREA_RULES = {
     # HackerRank
-    "screen":         re.compile(r"\b(test|assessment|screen|proctoring|question|score|grading|candidate|plagiarism|submission|code\s+challenge|exam)\b", re.I),
-    "interviews":     re.compile(r"\b(interview|live\s+coding|interviewer|inactivity|lobby|screen\s+share|pair\s+programming)\b", re.I),
-    "skillup":        re.compile(r"\b(skillup|skill\s+up|learning|course|mock\s+interview|practice|resume\s+builder)\b", re.I),
-    "library":        re.compile(r"\b(library|question\s+library|problem\s+set|custom\s+question)\b", re.I),
-    "integrations":   re.compile(r"\b(ats|integration|greenhouse|lever|workday|api\s+key|webhook|sso|saml|scim|oauth)\b", re.I),
-    "community":      re.compile(r"\b(community|developer|coding\s+practice|apply|job|certificate|leaderboard|profile)\b", re.I),
-    "engage":         re.compile(r"\b(engage|job\s+description|role|jd|sourcing)\b", re.I),
+    "screen": re.compile(
+        r"\b(test|assessment|screen|proctoring|question|score|grading|candidate|plagiarism|submission|code\s+challenge|exam)\b",
+        re.I,
+    ),
+    "interviews": re.compile(
+        r"\b(interview|live\s+coding|interviewer|inactivity|lobby|screen\s+share|pair\s+programming)\b",
+        re.I,
+    ),
+    "skillup": re.compile(
+        r"\b(skillup|skill\s+up|learning|course|mock\s+interview|practice|resume\s+builder)\b", re.I
+    ),
+    "library": re.compile(
+        r"\b(library|question\s+library|problem\s+set|custom\s+question)\b", re.I
+    ),
+    "integrations": re.compile(
+        r"\b(ats|integration|greenhouse|lever|workday|api\s+key|webhook|sso|saml|scim|oauth)\b",
+        re.I,
+    ),
+    "community": re.compile(
+        r"\b(community|developer|coding\s+practice|apply|job|certificate|leaderboard|profile)\b",
+        re.I,
+    ),
+    "engage": re.compile(r"\b(engage|job\s+description|role|jd|sourcing)\b", re.I),
     # Claude
-    "pro_and_max_plans":      re.compile(r"\b(pro|max|plan|subscription|upgrade|downgrade|tier|usage\s+limit|message\s+limit)\b", re.I),
-    "team_and_enterprise":    re.compile(r"\b(team|enterprise|workspace|seat|admin|owner|sso|scim|organization|org)\b", re.I),
-    "claude_api_and_console": re.compile(r"\b(api|console|sdk|api\s+key|bedrock|token|rate\s+limit|anthropic\s+api|platform\.claude)\b", re.I),
-    "claude_code":            re.compile(r"\b(claude\s+code|terminal|cli|code\s+agent|npm\s+install)\b", re.I),
-    "claude_mobile_apps":     re.compile(r"\b(mobile|ios|android|app\s+store|google\s+play|phone|iphone)\b", re.I),
-    "privacy_and_legal":      re.compile(r"\b(privacy|gdpr|ccpa|data|delete|crawl|personal\s+data|model\s+training|opt.out)\b", re.I),
-    "safeguards":             re.compile(r"\b(content\s+policy|safety|harm|restrict|policy|nsfw|abuse|report|vulnerability|bug\s+bounty|security\s+vuln)\b", re.I),
-    "amazon_bedrock":         re.compile(r"\b(bedrock|aws|amazon)\b", re.I),
-    "claude_for_education":   re.compile(r"\b(education|university|college|student|professor|lti|school)\b", re.I),
+    "pro_and_max_plans": re.compile(
+        r"\b(pro|max|plan|subscription|upgrade|downgrade|tier|usage\s+limit|message\s+limit)\b",
+        re.I,
+    ),
+    "team_and_enterprise": re.compile(
+        r"\b(team|enterprise|workspace|seat|admin|owner|sso|scim|organization|org)\b", re.I
+    ),
+    "claude_api_and_console": re.compile(
+        r"\b(api|console|sdk|api\s+key|bedrock|token|rate\s+limit|anthropic\s+api|platform\.claude)\b",
+        re.I,
+    ),
+    "claude_code": re.compile(r"\b(claude\s+code|terminal|cli|code\s+agent|npm\s+install)\b", re.I),
+    "claude_mobile_apps": re.compile(
+        r"\b(mobile|ios|android|app\s+store|google\s+play|phone|iphone)\b", re.I
+    ),
+    "privacy_and_legal": re.compile(
+        r"\b(privacy|gdpr|ccpa|data|delete|crawl|personal\s+data|model\s+training|opt.out)\b", re.I
+    ),
+    "safeguards": re.compile(
+        r"\b(content\s+policy|safety|harm|restrict|policy|nsfw|abuse|report|vulnerability|bug\s+bounty|security\s+vuln)\b",
+        re.I,
+    ),
+    "amazon_bedrock": re.compile(r"\b(bedrock|aws|amazon)\b", re.I),
+    "claude_for_education": re.compile(
+        r"\b(education|university|college|student|professor|lti|school)\b", re.I
+    ),
     # Visa
-    "dispute_resolution":     re.compile(r"\b(dispute|chargeback|wrong\s+product|refund|merchant|unauthorized\s+charge|billed|overcharg)\b", re.I),
-    "security_and_fraud":     re.compile(r"\b(fraud|stolen|hack|identity\s+theft|unauthorized|compromised|phishing|scam)\b", re.I),
-    "travel_support":         re.compile(r"\b(travel|abroad|foreign|lost\s+card|stolen\s+card|atm|emergency\s+cash|international|cheque|travell)\b", re.I),
-    "card_benefits":          re.compile(r"\b(benefit|lounge|insurance|concierge|reward|cashback)\b", re.I),
+    "dispute_resolution": re.compile(
+        r"\b(dispute|chargeback|wrong\s+product|refund|merchant|unauthorized\s+charge|billed|overcharg)\b",
+        re.I,
+    ),
+    "security_and_fraud": re.compile(
+        r"\b(fraud|stolen|hack|identity\s+theft|unauthorized|compromised|phishing|scam)\b", re.I
+    ),
+    "travel_support": re.compile(
+        r"\b(travel|abroad|foreign|lost\s+card|stolen\s+card|atm|emergency\s+cash|international|cheque|travell)\b",
+        re.I,
+    ),
+    "card_benefits": re.compile(r"\b(benefit|lounge|insurance|concierge|reward|cashback)\b", re.I),
 }
+
 
 def classify_product_area(ticket: SupportTicket, docs: List[RetrievedDoc]) -> str:
     """Classify product area using both keyword rules and top retrieved doc."""
     combined = f"{ticket.issue} {ticket.subject}"
-    company  = (ticket.company or "").lower()
+    company = (ticket.company or "").lower()
 
     # Score each area
     scores: dict[str, int] = {}
@@ -72,21 +120,40 @@ def classify_product_area(ticket: SupportTicket, docs: List[RetrievedDoc]) -> st
     # Bias toward company-specific areas
     if scores:
         if company == "hackerrank":
-            hr_areas = ["screen", "interviews", "skillup", "library", "integrations",
-                        "community", "engage"]
+            hr_areas = [
+                "screen",
+                "interviews",
+                "skillup",
+                "library",
+                "integrations",
+                "community",
+                "engage",
+            ]
             hr_scored = {k: v for k, v in scores.items() if k in hr_areas}
             if hr_scored:
                 return max(hr_scored, key=hr_scored.get)
         elif company == "claude":
-            cl_areas = ["pro_and_max_plans", "team_and_enterprise", "claude_api_and_console",
-                        "claude_code", "claude_mobile_apps", "privacy_and_legal",
-                        "safeguards", "amazon_bedrock", "claude_for_education"]
+            cl_areas = [
+                "pro_and_max_plans",
+                "team_and_enterprise",
+                "claude_api_and_console",
+                "claude_code",
+                "claude_mobile_apps",
+                "privacy_and_legal",
+                "safeguards",
+                "amazon_bedrock",
+                "claude_for_education",
+            ]
             cl_scored = {k: v for k, v in scores.items() if k in cl_areas}
             if cl_scored:
                 return max(cl_scored, key=cl_scored.get)
         elif company == "visa":
-            vi_areas = ["dispute_resolution", "security_and_fraud", "travel_support",
-                        "card_benefits"]
+            vi_areas = [
+                "dispute_resolution",
+                "security_and_fraud",
+                "travel_support",
+                "card_benefits",
+            ]
             vi_scored = {k: v for k, v in scores.items() if k in vi_areas}
             if vi_scored:
                 return max(vi_scored, key=vi_scored.get)
@@ -111,15 +178,15 @@ def classify_product_area(ticket: SupportTicket, docs: List[RetrievedDoc]) -> st
 _BUG_PAT = re.compile(
     r"\b(not\s+working|broken|bug|error|crash(?:ed|ing)?|fail(?:ed|ing|ure)|glitch"
     r"|down|outage|can[\s']t\s+(?:load|access|open|login|submit)|stopped\s+working"
-    r"|isn['\s]+t\s+working|unable\s+to|doesn['\s]+t\s+work)\b", re.I
+    r"|isn['\s]+t\s+working|unable\s+to|doesn['\s]+t\s+work)\b",
+    re.I,
 )
 _FEATURE_PAT = re.compile(
     r"\b(feature\s+request|can\s+you\s+add|would\s+be\s+(?:nice|great)|wish|suggest"
-    r"|idea|enhancement|improve|when\s+will\s+you|please\s+add|want\s+to\s+see)\b", re.I
+    r"|idea|enhancement|improve|when\s+will\s+you|please\s+add|want\s+to\s+see)\b",
+    re.I,
 )
-_INVALID_PAT = re.compile(
-    r"^(hi+|hello+|thank\s*you|thanks|test|ok|okay|yes|no|\.+)[\s!.]*$", re.I
-)
+_INVALID_PAT = re.compile(r"^(hi+|hello+|thank\s*you|thanks|test|ok|okay|yes|no|\.+)[\s!.]*$", re.I)
 
 
 def classify_request_type(ticket: SupportTicket, is_invalid: bool = False) -> RequestType:
@@ -137,6 +204,7 @@ def classify_request_type(ticket: SupportTicket, is_invalid: bool = False) -> Re
 # Response templates per scenario type
 # ─────────────────────────────────────────────────────────────────
 
+
 def _build_response_from_docs(
     ticket: SupportTicket,
     docs: List[RetrievedDoc],
@@ -145,7 +213,7 @@ def _build_response_from_docs(
     """Build a grounded user-facing response using retrieved docs."""
 
     issue_lower = ticket.issue.lower()
-    company     = (ticket.company or "").strip()
+    company = (ticket.company or "").strip()
 
     # ── Scenario-specific responses (highest priority) ─────────────
 
@@ -666,11 +734,13 @@ def _build_response_from_docs(
 
 def _detect_scenario(ticket: SupportTicket) -> str:
     """Map a ticket to the best scenario key."""
-    issue   = (ticket.issue + " " + ticket.subject).lower()
+    issue = (ticket.issue + " " + ticket.subject).lower()
     company = (ticket.company or "").strip()
 
     # Prompt injection check
-    if re.search(r"affiche|toutes les r.gles internes|documents r.cup.r.s|logique exacte", issue, re.I):
+    if re.search(
+        r"affiche|toutes les r.gles internes|documents r.cup.r.s|logique exacte", issue, re.I
+    ):
         return "prompt_injection_visa"
     if re.search(r"delete all files|rm -rf|remove all files from the system", issue, re.I):
         return "malicious_delete"
@@ -679,17 +749,26 @@ def _detect_scenario(ticket: SupportTicket) -> str:
     if company == "HackerRank":
         if re.search(r"password|reset\s+pass|forgot\s+pass|delete\s+account|google\s+login", issue):
             return "hr_password"
-        if re.search(r"score|graded|unfair|increase\s+my\s+score|review\s+my\s+answer|move\s+me\s+to\s+next", issue):
+        if re.search(
+            r"score|graded|unfair|increase\s+my\s+score|review\s+my\s+answer|move\s+me\s+to\s+next",
+            issue,
+        ):
             return "hr_score_dispute"
         if re.search(r"mock\s+interview.*refund|refund.*mock|stopped\s+in\s+between", issue):
             return "hr_refund"
         if re.search(r"payment|order\s+id|billing|invoice|charged|money", issue):
             return "hr_billing"
-        if re.search(r"infosec|information\s+security|security\s+form|compliance\s+form|fill.*form", issue):
+        if re.search(
+            r"infosec|information\s+security|security\s+form|compliance\s+form|fill.*form", issue
+        ):
             return "hr_infosec"
-        if re.search(r"apply\s+tab|submissions.*not\s+work|practice.*not\s+work|can.*see.*apply", issue):
+        if re.search(
+            r"apply\s+tab|submissions.*not\s+work|practice.*not\s+work|can.*see.*apply", issue
+        ):
             return "hr_apply_tab"
-        if re.search(r"none.*submissions.*work|all.*challenges.*not\s+work|submissions.*failing", issue):
+        if re.search(
+            r"none.*submissions.*work|all.*challenges.*not\s+work|submissions.*failing", issue
+        ):
             return "hr_submissions_down"
         if re.search(r"zoom|compatible\s+check|connectivity.*check|proctoring.*block", issue):
             return "hr_zoom"
@@ -697,7 +776,9 @@ def _detect_scenario(ticket: SupportTicket) -> str:
             return "hr_reschedule"
         if re.search(r"inactivity|timeout|kicked\s+out|lobby|extend.*time.*interview", issue):
             return "hr_inactivity"
-        if re.search(r"remove.*interview|remove.*user|how\s+to\s+remove", issue) and re.search(r"interviewer|platform", issue):
+        if re.search(r"remove.*interview|remove.*user|how\s+to\s+remove", issue) and re.search(
+            r"interviewer|platform", issue
+        ):
             return "hr_remove_user"
         if re.search(r"pause.*subscri|subscri.*pause|stop.*hiring", issue):
             return "hr_subscription_pause"
@@ -714,7 +795,9 @@ def _detect_scenario(ticket: SupportTicket) -> str:
             return "claude_bedrock"
         if re.search(r"lost\s+access|workspace|seat|restore.*access|not.*owner|not.*admin", issue):
             return "claude_workspace_access"
-        if re.search(r"stopped\s+working|not\s+responding|all\s+requests.*failing|claude.*down", issue):
+        if re.search(
+            r"stopped\s+working|not\s+responding|all\s+requests.*failing|claude.*down", issue
+        ):
             return "claude_down"
         if re.search(r"security\s+vuln|vulnerability|bug\s+bounty|major.*bug|report.*bug", issue):
             return "claude_security_vuln"
@@ -741,8 +824,9 @@ def _detect_scenario(ticket: SupportTicket) -> str:
         # Short, vague message with no product context = invalid
         issue_only = ticket.issue.strip()
         has_product_context = re.search(
-            r"hackerrank|claude|visa|card|payment|api|test|assessment|account|subscription", 
-            issue_only, re.I
+            r"hackerrank|claude|visa|card|payment|api|test|assessment|account|subscription",
+            issue_only,
+            re.I,
         )
         if not has_product_context and len(issue_only) < 50:
             return "invalid_vague"
@@ -755,6 +839,7 @@ def _detect_scenario(ticket: SupportTicket) -> str:
 # ─────────────────────────────────────────────────────────────────
 # Main engine
 # ─────────────────────────────────────────────────────────────────
+
 
 class GroundedResponseEngine:
     """
@@ -772,14 +857,14 @@ class GroundedResponseEngine:
         # ── Step 1: Invalid check ──────────────────────────────────
         if is_invalid_ticket(ticket):
             return TriageResult(
-                status       = TicketStatus.REPLIED,
-                product_area = "general_support",
-                response     = (
+                status=TicketStatus.REPLIED,
+                product_area="general_support",
+                response=(
                     "Your message appears to be empty or contains no actionable support "
                     "request. Please describe your issue and we'll be happy to help!"
                 ),
-                justification = "Ticket contained no actionable content.",
-                request_type  = RequestType.INVALID,
+                justification="Ticket contained no actionable content.",
+                request_type=RequestType.INVALID,
             )
 
         # ── Step 2: Safety pre-screen ──────────────────────────────
@@ -811,104 +896,102 @@ class GroundedResponseEngine:
             elif scenario == "malicious_delete":
                 resp = _build_response_from_docs(ticket, [], "malicious_delete")
             return TriageResult(
-                status       = TicketStatus.ESCALATED,
-                product_area = product_area,
-                response     = resp,
-                justification = f"Escalated due to: {reason.value if reason else 'high-risk content detected'}.",
-                request_type  = RequestType.PRODUCT_ISSUE,
+                status=TicketStatus.ESCALATED,
+                product_area=product_area,
+                response=resp,
+                justification=f"Escalated due to: {reason.value if reason else 'high-risk content detected'}.",
+                request_type=RequestType.PRODUCT_ISSUE,
             )
 
         # ── Step 3: Company inference ──────────────────────────────
         effective_company = (
-            ticket.company
-            if ticket.company not in ("None", "", None)
-            else infer_company(ticket)
+            ticket.company if ticket.company not in ("None", "", None) else infer_company(ticket)
         )
 
         # ── Step 4: Retrieve ───────────────────────────────────────
         query = f"{ticket.subject} {ticket.issue}".strip()
-        docs  = self.retriever.retrieve(query, company=effective_company, top_k=5)
+        docs = self.retriever.retrieve(query, company=effective_company, top_k=5)
 
         # ── Step 5: Classify product area & request type ───────────
         product_area = classify_product_area(ticket, docs)
-        req_type     = classify_request_type(ticket)
+        req_type = classify_request_type(ticket)
 
         # ── Step 6: Handle specific scenarios ─────────────────────
         # Extra escalation for certain scenarios
         extra_escalate = False
-        extra_reason   = ""
+        extra_reason = ""
 
         if scenario == "hr_refund":
             extra_escalate = True
-            extra_reason   = "Refund requests require billing team review."
-            product_area   = "billing"
+            extra_reason = "Refund requests require billing team review."
+            product_area = "billing"
         elif scenario == "hr_billing":
             extra_escalate = True
-            extra_reason   = "Payment/billing issues require specialist review."
-            product_area   = "billing"
+            extra_reason = "Payment/billing issues require specialist review."
+            product_area = "billing"
         elif scenario == "hr_submissions_down":
             extra_escalate = True
-            extra_reason   = "Platform-wide outage requires immediate engineering escalation."
-            product_area   = "screen"
+            extra_reason = "Platform-wide outage requires immediate engineering escalation."
+            product_area = "screen"
         elif scenario == "claude_security_vuln":
             extra_escalate = True
-            extra_reason   = "Security vulnerability reports are escalated to the security team."
-            product_area   = "security_and_bug_bounty"
+            extra_reason = "Security vulnerability reports are escalated to the security team."
+            product_area = "security_and_bug_bounty"
         elif scenario == "malicious_delete":
             extra_escalate = True
-            extra_reason   = "Potentially harmful request flagged for human review."
-            product_area   = "general_support"
+            extra_reason = "Potentially harmful request flagged for human review."
+            product_area = "general_support"
         elif scenario == "prompt_injection_visa":
             extra_escalate = True
-            extra_reason   = "Prompt injection attempt detected."
-            product_area   = "security"
+            extra_reason = "Prompt injection attempt detected."
+            product_area = "security"
         elif scenario == "invalid_vague":
-            req_type       = RequestType.INVALID
-            product_area   = "general_support"
+            req_type = RequestType.INVALID
+            product_area = "general_support"
         elif scenario == "hr_score_dispute":
-            req_type       = RequestType.INVALID
+            req_type = RequestType.INVALID
         elif scenario == "hr_apply_tab":
-            product_area   = "community"
-            req_type       = RequestType.PRODUCT_ISSUE
+            product_area = "community"
+            req_type = RequestType.PRODUCT_ISSUE
         elif scenario == "hr_remove_user" or scenario == "hr_remove_employee":
-            product_area   = "account_settings"
+            product_area = "account_settings"
         elif scenario == "hr_subscription_pause":
-            product_area   = "billing"
+            product_area = "billing"
         elif scenario == "hr_resume_down":
-            product_area   = "skillup"
+            product_area = "skillup"
         elif scenario == "hr_certificate_name":
-            product_area   = "screen"
+            product_area = "screen"
         elif scenario == "hr_reschedule":
-            product_area   = "screen"
+            product_area = "screen"
         elif scenario == "hr_inactivity":
-            product_area   = "interviews"
+            product_area = "interviews"
         elif scenario == "hr_infosec":
-            product_area   = "general_support"
+            product_area = "general_support"
         elif scenario == "claude_workspace_access":
-            product_area   = "team_and_enterprise"
+            product_area = "team_and_enterprise"
         elif scenario == "claude_down":
-            product_area   = "claude_core"
-            req_type       = RequestType.BUG
+            product_area = "claude_core"
+            req_type = RequestType.BUG
         elif scenario == "claude_crawl_optout":
-            product_area   = "privacy_and_legal"
+            product_area = "privacy_and_legal"
         elif scenario == "claude_data_retention":
-            product_area   = "privacy_and_legal"
-            req_type       = RequestType.PRODUCT_ISSUE
+            product_area = "privacy_and_legal"
+            req_type = RequestType.PRODUCT_ISSUE
         elif scenario == "claude_bedrock":
-            product_area   = "amazon_bedrock"
-            req_type       = RequestType.BUG
+            product_area = "amazon_bedrock"
+            req_type = RequestType.BUG
         elif scenario == "claude_education_lti":
-            product_area   = "claude_for_education"
+            product_area = "claude_for_education"
         elif scenario == "visa_dispute":
-            product_area   = "dispute_resolution"
+            product_area = "dispute_resolution"
         elif scenario == "visa_dispute_how":
-            product_area   = "dispute_resolution"
+            product_area = "dispute_resolution"
         elif scenario == "visa_identity_theft":
-            product_area   = "security_and_fraud"
+            product_area = "security_and_fraud"
         elif scenario == "visa_urgent_cash":
-            product_area   = "travel_support"
+            product_area = "travel_support"
         elif scenario == "visa_minimum_spend":
-            product_area   = "consumer_support"
+            product_area = "consumer_support"
 
         response = _build_response_from_docs(ticket, docs, scenario)
 
@@ -918,17 +1001,18 @@ class GroundedResponseEngine:
                 f"Retrieved from: {docs[0].chunk.title if docs else 'N/A'}."
             )
             return TriageResult(
-                status        = TicketStatus.ESCALATED,
-                product_area  = product_area,
-                response      = response,
-                justification = justification,
-                request_type  = req_type,
+                status=TicketStatus.ESCALATED,
+                product_area=product_area,
+                response=response,
+                justification=justification,
+                request_type=req_type,
             )
 
         # ── Step 7: Build justification ────────────────────────────
         top_doc_info = (
             f"Top retrieved doc: '{docs[0].chunk.title}' (score={docs[0].score})"
-            if docs else "No corpus match found"
+            if docs
+            else "No corpus match found"
         )
         justification = (
             f"Replied with grounded response from {effective_company or 'general'} corpus. "
@@ -936,9 +1020,9 @@ class GroundedResponseEngine:
         )
 
         return TriageResult(
-            status        = TicketStatus.REPLIED,
-            product_area  = product_area,
-            response      = response,
-            justification = justification,
-            request_type  = req_type,
+            status=TicketStatus.REPLIED,
+            product_area=product_area,
+            response=response,
+            justification=justification,
+            request_type=req_type,
         )

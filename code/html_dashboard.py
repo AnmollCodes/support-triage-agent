@@ -16,13 +16,12 @@ Generates a single self-contained HTML file with:
 Fully self-contained: one .html file, no external dependencies,
 works offline. Charts use Chart.js from CDN (one external request).
 """
+
 from __future__ import annotations
 import json
 from pathlib import Path
 from typing import List, Optional
-from models import (
-    IncidentReport, Sentiment, SupportTicket, TicketStatus, TriageResult, UrgencyTier
-)
+from models import IncidentReport, Sentiment, SupportTicket, TicketStatus, TriageResult, UrgencyTier
 from churn_risk import ChurnRiskResult
 from health_score import HealthScoreResult
 
@@ -40,32 +39,32 @@ def _ticket_row_color(result: TriageResult, churn: ChurnRiskResult) -> str:
         return "#1a2a3a"
     tier_colors = {
         UrgencyTier.P0_CRITICAL: "#3a1a1a",
-        UrgencyTier.P1_HIGH:     "#3a2a0a",
-        UrgencyTier.P2_MEDIUM:   "#1a2a2a",
-        UrgencyTier.P3_LOW:      "#1a1e24",
+        UrgencyTier.P1_HIGH: "#3a2a0a",
+        UrgencyTier.P2_MEDIUM: "#1a2a2a",
+        UrgencyTier.P3_LOW: "#1a1e24",
     }
     return tier_colors.get(result.urgency.tier, "#1a1e24")
 
 
 def generate_html_dashboard(
-    tickets:  List[SupportTicket],
-    results:  List[TriageResult],
+    tickets: List[SupportTicket],
+    results: List[TriageResult],
     incidents: List[IncidentReport],
-    churns:   List[ChurnRiskResult],
-    healths:  List[HealthScoreResult],
+    churns: List[ChurnRiskResult],
+    healths: List[HealthScoreResult],
     output_path: Path,
 ) -> None:
 
-    total     = len(results)
-    replied   = sum(1 for r in results if r.status == TicketStatus.REPLIED)
+    total = len(results)
+    replied = sum(1 for r in results if r.status == TicketStatus.REPLIED)
     escalated = total - replied
-    avg_conf  = sum(r.confidence.score for r in results) / max(total, 1)
-    avg_qual  = sum(r.quality.score    for r in results) / max(total, 1)
-    avg_health= sum(h.health_score     for h in healths)  / max(total, 1)
+    avg_conf = sum(r.confidence.score for r in results) / max(total, 1)
+    avg_qual = sum(r.quality.score for r in results) / max(total, 1)
+    avg_health = sum(h.health_score for h in healths) / max(total, 1)
     vip_count = sum(1 for r in results if r.vip.is_vip)
     gap_count = sum(1 for r in results if r.corpus_gap.gap_detected)
     inj_count = sum(1 for r in results if r.language.injection_in_foreign)
-    high_churn= sum(1 for c in churns  if c.churn_risk_score >= 45)
+    high_churn = sum(1 for c in churns if c.churn_risk_score >= 45)
 
     # Chart data
     sent_counts = {}
@@ -78,7 +77,7 @@ def generate_html_dashboard(
         t = r.urgency.tier.value
         tier_counts[t] = tier_counts.get(t, 0) + 1
 
-    health_dist = {"Healthy":0,"At Risk":0,"Critical":0,"Red Alert":0}
+    health_dist = {"Healthy": 0, "At Risk": 0, "Critical": 0, "Red Alert": 0}
     for h in healths:
         health_dist[h.health_label] = health_dist.get(h.health_label, 0) + 1
 
@@ -95,7 +94,8 @@ def generate_html_dashboard(
     # Top 5 churn risk tickets
     churn_sorted = sorted(
         [(i, tickets[i], results[i], churns[i]) for i in range(total)],
-        key=lambda x: x[3].churn_risk_score, reverse=True
+        key=lambda x: x[3].churn_risk_score,
+        reverse=True,
     )[:5]
 
     # Incident HTML
@@ -104,7 +104,7 @@ def generate_html_dashboard(
         sev_colors = {"SEV1": "#ff4444", "SEV2": "#ffaa00", "SEV3": "#44aaff"}
         for inc in incidents:
             color = sev_colors.get(inc.severity.value, "#888")
-            nums  = ", ".join(f"#{n}" for n in inc.ticket_indices[:8])
+            nums = ", ".join(f"#{n}" for n in inc.ticket_indices[:8])
             incident_html += f"""
             <div class="incident-card" style="border-left:4px solid {color}">
                 <div class="inc-header">
@@ -122,24 +122,48 @@ def generate_html_dashboard(
                 </div>
             </div>"""
     else:
-        incident_html = '<div class="no-incident">✓ No incident clusters detected in this batch.</div>'
+        incident_html = (
+            '<div class="no-incident">✓ No incident clusters detected in this batch.</div>'
+        )
 
     # Ticket table rows
     table_rows = ""
     for i, (ticket, result, churn, health) in enumerate(zip(tickets, results, churns, healths)):
-        row_bg    = _ticket_row_color(result, churn)
-        st_color  = "#4caf50" if result.status == TicketStatus.REPLIED else "#f44336"
-        st_label  = "✓ Replied" if result.status == TicketStatus.REPLIED else "⚠ Escalated"
-        tier_colors = {"P0_Critical":"#ff4444","P1_High":"#ffaa00","P2_Medium":"#44dddd","P3_Low":"#888"}
-        tier_c    = tier_colors.get(result.urgency.tier.value, "#888")
-        sent_colors= {"angry":"#ff4444","frustrated":"#ffaa00","distressed":"#cc44ff","neutral":"#aaa","positive":"#44ff88"}
-        sent_c    = sent_colors.get(result.sentiment.sentiment.value, "#aaa")
-        hlth_colors= {"Healthy":"#44ff88","At Risk":"#ffaa00","Critical":"#ff8844","Red Alert":"#ff4444"}
-        hlth_c    = hlth_colors.get(health.health_label, "#aaa")
-        inj_badge = ' <span class="badge badge-red">INJECTION</span>' if result.language.injection_in_foreign else ""
+        row_bg = _ticket_row_color(result, churn)
+        st_color = "#4caf50" if result.status == TicketStatus.REPLIED else "#f44336"
+        st_label = "✓ Replied" if result.status == TicketStatus.REPLIED else "⚠ Escalated"
+        tier_colors = {
+            "P0_Critical": "#ff4444",
+            "P1_High": "#ffaa00",
+            "P2_Medium": "#44dddd",
+            "P3_Low": "#888",
+        }
+        tier_c = tier_colors.get(result.urgency.tier.value, "#888")
+        sent_colors = {
+            "angry": "#ff4444",
+            "frustrated": "#ffaa00",
+            "distressed": "#cc44ff",
+            "neutral": "#aaa",
+            "positive": "#44ff88",
+        }
+        sent_c = sent_colors.get(result.sentiment.sentiment.value, "#aaa")
+        hlth_colors = {
+            "Healthy": "#44ff88",
+            "At Risk": "#ffaa00",
+            "Critical": "#ff8844",
+            "Red Alert": "#ff4444",
+        }
+        hlth_c = hlth_colors.get(health.health_label, "#aaa")
+        inj_badge = (
+            ' <span class="badge badge-red">INJECTION</span>'
+            if result.language.injection_in_foreign
+            else ""
+        )
         vip_badge = ' <span class="badge badge-gold">VIP</span>' if result.vip.is_vip else ""
         dup_badge = ""
-        issue_preview = ticket.issue[:90].replace("\n"," ").replace("<","&lt;").replace(">","&gt;")
+        issue_preview = (
+            ticket.issue[:90].replace("\n", " ").replace("<", "&lt;").replace(">", "&gt;")
+        )
 
         table_rows += f"""
         <tr style="background:{row_bg}" class="ticket-row" data-company="{ticket.company}"
@@ -165,7 +189,11 @@ def generate_html_dashboard(
         if churn.churn_risk_score == 0:
             break
         bar_w = churn.churn_risk_score
-        bar_color = "#ff4444" if churn.churn_risk_score >= 70 else "#ffaa00" if churn.churn_risk_score >= 45 else "#44aaff"
+        bar_color = (
+            "#ff4444"
+            if churn.churn_risk_score >= 70
+            else "#ffaa00" if churn.churn_risk_score >= 45 else "#44aaff"
+        )
         churn_leaderboard += f"""
         <div class="churn-item">
             <div class="churn-header">
@@ -184,11 +212,13 @@ def generate_html_dashboard(
 
     # Knowledge gaps
     gap_html = ""
-    gap_suggestions = list({
-        r.corpus_gap.suggested_doc_title
-        for r in results
-        if r.corpus_gap.gap_detected and r.corpus_gap.suggested_doc_title
-    })
+    gap_suggestions = list(
+        {
+            r.corpus_gap.suggested_doc_title
+            for r in results
+            if r.corpus_gap.gap_detected and r.corpus_gap.suggested_doc_title
+        }
+    )
     if gap_suggestions:
         for s in gap_suggestions[:8]:
             gap_html += f'<div class="gap-item">📄 {s}</div>\n'

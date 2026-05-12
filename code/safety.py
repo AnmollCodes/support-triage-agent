@@ -33,16 +33,16 @@ from models import SupportTicket
 
 
 class EscalationReason(str, Enum):
-    FRAUD               = "fraud_or_unauthorized_transaction"
-    ACCOUNT_COMPROMISE  = "account_compromise_or_security_breach"
-    LEGAL_REGULATORY    = "legal_or_regulatory_complaint"
-    SAFETY_THREAT       = "physical_safety_threat"
-    PROMPT_INJECTION    = "prompt_injection_or_jailbreak_attempt"
-    SENSITIVE_DATA      = "sensitive_personal_data_request"
-    COMPLEX_BILLING     = "complex_billing_dispute"
-    GDPR_REQUEST        = "gdpr_or_privacy_rights_request"
-    OUT_OF_SCOPE        = "out_of_scope_request"
-    LLM_FLAGGED         = "llm_flagged_high_risk"
+    FRAUD = "fraud_or_unauthorized_transaction"
+    ACCOUNT_COMPROMISE = "account_compromise_or_security_breach"
+    LEGAL_REGULATORY = "legal_or_regulatory_complaint"
+    SAFETY_THREAT = "physical_safety_threat"
+    PROMPT_INJECTION = "prompt_injection_or_jailbreak_attempt"
+    SENSITIVE_DATA = "sensitive_personal_data_request"
+    COMPLEX_BILLING = "complex_billing_dispute"
+    GDPR_REQUEST = "gdpr_or_privacy_rights_request"
+    OUT_OF_SCOPE = "out_of_scope_request"
+    LLM_FLAGGED = "llm_flagged_high_risk"
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -114,6 +114,7 @@ _OOS_PATTERNS = re.compile(
 # ─────────────────────────────────────────────────────────────────
 # Public interface
 # ─────────────────────────────────────────────────────────────────
+
 
 def check_escalation(
     ticket: SupportTicket,

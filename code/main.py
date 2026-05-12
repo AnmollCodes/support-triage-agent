@@ -63,6 +63,7 @@ console = Console()
 # CSV helpers
 # ─────────────────────────────────────────────────────────────────
 
+
 def read_tickets(path: Path) -> List[SupportTicket]:
     """Read support_issues CSV and return validated SupportTicket list."""
     tickets: List[SupportTicket] = []
@@ -73,9 +74,9 @@ def read_tickets(path: Path) -> List[SupportTicket]:
             norm = {k.strip().lower(): v for k, v in row.items()}
             tickets.append(
                 SupportTicket(
-                    issue   = norm.get("issue", ""),
-                    subject = norm.get("subject", ""),
-                    company = norm.get("company", "None"),
+                    issue=norm.get("issue", ""),
+                    subject=norm.get("subject", ""),
+                    company=norm.get("company", "None"),
                 )
             )
     return tickets
@@ -89,13 +90,15 @@ def write_results(results: List[TriageResult], path: Path) -> None:
         writer = csv.DictWriter(f, fieldnames=fieldnames, quoting=csv.QUOTE_ALL)
         writer.writeheader()
         for r in results:
-            writer.writerow({
-                "status":        r.status.value,
-                "product_area":  r.product_area,
-                "response":      r.response,
-                "justification": r.justification,
-                "request_type":  r.request_type.value,
-            })
+            writer.writerow(
+                {
+                    "status": r.status.value,
+                    "product_area": r.product_area,
+                    "response": r.response,
+                    "justification": r.justification,
+                    "request_type": r.request_type.value,
+                }
+            )
     console.print(f"\n[green bold]✓ Output written to {path}[/green bold]")
 
 
@@ -104,15 +107,15 @@ def write_results(results: List[TriageResult], path: Path) -> None:
 # ─────────────────────────────────────────────────────────────────
 
 STATUS_STYLE = {
-    "replied":   "[green]✓ replied[/green]",
+    "replied": "[green]✓ replied[/green]",
     "escalated": "[red]⚠ escalated[/red]",
 }
 
 REQTYPE_STYLE = {
-    "product_issue":   "[blue]product_issue[/blue]",
+    "product_issue": "[blue]product_issue[/blue]",
     "feature_request": "[cyan]feature_request[/cyan]",
-    "bug":             "[magenta]bug[/magenta]",
-    "invalid":         "[dim]invalid[/dim]",
+    "bug": "[magenta]bug[/magenta]",
+    "invalid": "[dim]invalid[/dim]",
 }
 
 
@@ -120,15 +123,13 @@ def _ticket_panel(idx: int, ticket: SupportTicket) -> Panel:
     content = (
         f"[bold]Company:[/bold] {ticket.company}\n"
         f"[bold]Subject:[/bold] {ticket.subject or '(none)'}\n"
-        f"[bold]Issue:[/bold]   {ticket.issue[:300]}"
-        + ("…" if len(ticket.issue) > 300 else "")
+        f"[bold]Issue:[/bold]   {ticket.issue[:300]}" + ("…" if len(ticket.issue) > 300 else "")
     )
-    return Panel(content, title=f"[bold]Ticket #{idx + 1}[/bold]",
-                 border_style="blue")
+    return Panel(content, title=f"[bold]Ticket #{idx + 1}[/bold]", border_style="blue")
 
 
 def _result_panel(result: TriageResult) -> Panel:
-    status_str  = STATUS_STYLE.get(result.status.value, result.status.value)
+    status_str = STATUS_STYLE.get(result.status.value, result.status.value)
     reqtype_str = REQTYPE_STYLE.get(result.request_type.value, result.request_type.value)
     content = (
         f"  {status_str}  │  {reqtype_str}  │  "
@@ -136,8 +137,7 @@ def _result_panel(result: TriageResult) -> Panel:
         f"[bold]Response:[/bold]\n{result.response}\n\n"
         f"[dim][bold]Justification:[/bold] {result.justification}[/dim]"
     )
-    return Panel(content, title="[bold green]Agent Decision[/bold green]",
-                 border_style="green")
+    return Panel(content, title="[bold green]Agent Decision[/bold green]", border_style="green")
 
 
 def display_summary_table(
@@ -151,18 +151,16 @@ def display_summary_table(
         header_style="bold",
         expand=True,
     )
-    table.add_column("#",            width=4,  style="dim")
-    table.add_column("Company",      width=12)
-    table.add_column("Status",       width=12)
+    table.add_column("#", width=4, style="dim")
+    table.add_column("Company", width=12)
+    table.add_column("Status", width=12)
     table.add_column("Request Type", width=17)
     table.add_column("Product Area", width=22)
     table.add_column("Issue (truncated)", min_width=20)
 
     for i, (ticket, result) in enumerate(zip(tickets, results)):
         status_text = Text(result.status.value)
-        status_text.stylize(
-            "green" if result.status.value == "replied" else "red"
-        )
+        status_text.stylize("green" if result.status.value == "replied" else "red")
         table.add_row(
             str(i + 1),
             ticket.company,
@@ -175,24 +173,24 @@ def display_summary_table(
     console.print(table)
 
     # Stats
-    total     = len(results)
-    replied   = sum(1 for r in results if r.status.value == "replied")
+    total = len(results)
+    replied = sum(1 for r in results if r.status.value == "replied")
     escalated = total - replied
-    types     = {}
+    types = {}
     for r in results:
         types[r.request_type.value] = types.get(r.request_type.value, 0) + 1
 
     console.print(
         f"\n[bold]Total:[/bold] {total}  "
         f"[green]Replied: {replied}[/green]  "
-        f"[red]Escalated: {escalated}[/red]  │  "
-        + "  ".join(f"{k}: {v}" for k, v in types.items())
+        f"[red]Escalated: {escalated}[/red]  │  " + "  ".join(f"{k}: {v}" for k, v in types.items())
     )
 
 
 # ─────────────────────────────────────────────────────────────────
 # Main processing loop
 # ─────────────────────────────────────────────────────────────────
+
 
 def process_tickets(
     agent: TriageAgent,
@@ -219,7 +217,7 @@ def process_tickets(
             progress.update(
                 task,
                 description=f"Ticket {i+1}/{len(tickets)} "
-                            f"[{ticket.company}] {ticket.issue[:40]}…",
+                f"[{ticket.company}] {ticket.issue[:40]}…",
             )
 
             if verbose:
@@ -236,9 +234,7 @@ def process_tickets(
                 console.print(f"[dim]  (processed in {elapsed:.2f}s)[/dim]\n")
             else:
                 status_icon = (
-                    "[green]✓[/green]"
-                    if result.status.value == "replied"
-                    else "[red]⚠[/red]"
+                    "[green]✓[/green]" if result.status.value == "replied" else "[red]⚠[/red]"
                 )
                 console.print(
                     f"  {i+1:>3}. {status_icon} "
@@ -250,7 +246,7 @@ def process_tickets(
             progress.advance(task)
 
             if dry_run:
-                break   # only one ticket in dry-run mode
+                break  # only one ticket in dry-run mode
 
     return results
 
@@ -259,6 +255,7 @@ def process_tickets(
 # Entry point
 # ─────────────────────────────────────────────────────────────────
 
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Multi-Domain Support Triage Agent",
@@ -266,40 +263,48 @@ def main() -> None:
         epilog=__doc__,
     )
     parser.add_argument(
-        "--input", type=Path, default=None,
+        "--input",
+        type=Path,
+        default=None,
         help="Path to input CSV (default: support_issues/support_issues.csv)",
     )
     parser.add_argument(
-        "--output", type=Path, default=OUTPUT_CSV,
+        "--output",
+        type=Path,
+        default=OUTPUT_CSV,
         help="Path for output CSV",
     )
     parser.add_argument(
-        "--sample", action="store_true",
+        "--sample",
+        action="store_true",
         help="Run on sample_support_issues.csv",
     )
     parser.add_argument(
-        "--rebuild", action="store_true",
+        "--rebuild",
+        action="store_true",
         help="Force re-scrape of the support corpus",
     )
     parser.add_argument(
-        "--dry-run", action="store_true",
+        "--dry-run",
+        action="store_true",
         help="Process only the first ticket; don't write CSV",
     )
     parser.add_argument(
-        "--ticket", type=int, default=None,
+        "--ticket",
+        type=int,
+        default=None,
         help="Process only ticket N (0-indexed)",
     )
     parser.add_argument(
-        "--verbose", action="store_true",
+        "--verbose",
+        action="store_true",
         help="Show full ticket/result panels",
     )
     args = parser.parse_args()
 
     # ── Banner ────────────────────────────────────────────────────
     console.print(Rule("[bold cyan]Support Triage Agent[/bold cyan]"))
-    console.print(
-        "[dim]Multi-domain triage: HackerRank · Claude · Visa[/dim]\n"
-    )
+    console.print("[dim]Multi-domain triage: HackerRank · Claude · Visa[/dim]\n")
 
     # ── Determine input file ──────────────────────────────────────
     if args.input:
@@ -345,7 +350,8 @@ def main() -> None:
 
     # ── Process ───────────────────────────────────────────────────
     results = process_tickets(
-        agent, tickets,
+        agent,
+        tickets,
         verbose=args.verbose,
         dry_run=args.dry_run,
     )

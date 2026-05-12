@@ -12,6 +12,7 @@ Output:
 This is the compounding value feature: every ticket processed makes the
 next batch faster and better. Like GitHub Copilot, but for support knowledge.
 """
+
 from __future__ import annotations
 import json
 import re
@@ -24,12 +25,12 @@ from models import SupportTicket, TriageResult, TicketStatus
 
 @dataclass
 class FAQEntry:
-    question:     str
-    answer:       str
-    product:      str
+    question: str
+    answer: str
+    product: str
     product_area: str
-    tags:         List[str] = field(default_factory=list)
-    confidence:   float = 0.0
+    tags: List[str] = field(default_factory=list)
+    confidence: float = 0.0
     source_ticket: int = 0  # 1-indexed
 
 
@@ -42,21 +43,18 @@ _QUESTION_PREFIXES = [
     r"when\s+(will|does|is)",
     r"is\s+(it|there|the)",
 ]
-_QUESTION_PAT = re.compile(
-    r"(?:" + "|".join(_QUESTION_PREFIXES) + r")\s+.{10,120}",
-    re.I
-)
+_QUESTION_PAT = re.compile(r"(?:" + "|".join(_QUESTION_PREFIXES) + r")\s+.{10,120}", re.I)
 
 _TAG_PATTERNS = {
-    "password-reset":   re.compile(r"\b(password|reset|forgot)\b", re.I),
-    "billing":          re.compile(r"\b(bill|payment|charge|invoice|refund)\b", re.I),
-    "account-access":   re.compile(r"\b(login|access|account|sign\s+in)\b", re.I),
-    "api":              re.compile(r"\b(api|sdk|endpoint|token)\b", re.I),
-    "assessment":       re.compile(r"\b(test|assessment|challenge|submission)\b", re.I),
-    "fraud-security":   re.compile(r"\b(fraud|security|stolen|unauthorized)\b", re.I),
-    "privacy":          re.compile(r"\b(gdpr|data|privacy|delete|crawl)\b", re.I),
-    "mobile":           re.compile(r"\b(mobile|ios|android|app)\b", re.I),
-    "travel":           re.compile(r"\b(travel|abroad|foreign|card)\b", re.I),
+    "password-reset": re.compile(r"\b(password|reset|forgot)\b", re.I),
+    "billing": re.compile(r"\b(bill|payment|charge|invoice|refund)\b", re.I),
+    "account-access": re.compile(r"\b(login|access|account|sign\s+in)\b", re.I),
+    "api": re.compile(r"\b(api|sdk|endpoint|token)\b", re.I),
+    "assessment": re.compile(r"\b(test|assessment|challenge|submission)\b", re.I),
+    "fraud-security": re.compile(r"\b(fraud|security|stolen|unauthorized)\b", re.I),
+    "privacy": re.compile(r"\b(gdpr|data|privacy|delete|crawl)\b", re.I),
+    "mobile": re.compile(r"\b(mobile|ios|android|app)\b", re.I),
+    "travel": re.compile(r"\b(travel|abroad|foreign|card)\b", re.I),
 }
 
 
@@ -112,8 +110,8 @@ def build_faq_entry(
         return None
 
     question = _extract_question(ticket)
-    answer   = result.response
-    tags     = _extract_tags(ticket, result)
+    answer = result.response
+    tags = _extract_tags(ticket, result)
 
     # Trim overly long answers for FAQ format
     if len(answer) > 800:
@@ -121,7 +119,9 @@ def build_faq_entry(
         truncated = answer[:800]
         last_period = max(truncated.rfind("."), truncated.rfind("\n"))
         if last_period > 400:
-            answer = truncated[:last_period + 1] + "\n\n*[See full support article for more details.]*"
+            answer = (
+                truncated[: last_period + 1] + "\n\n*[See full support article for more details.]*"
+            )
 
     return FAQEntry(
         question=question,
@@ -142,12 +142,12 @@ def save_faq_entries(entries: List[FAQEntry], output_dir: Path) -> None:
     json_path = output_dir / "faq_entries.json"
     data = [
         {
-            "question":     e.question,
-            "answer":       e.answer,
-            "product":      e.product,
+            "question": e.question,
+            "answer": e.answer,
+            "product": e.product,
             "product_area": e.product_area,
-            "tags":         e.tags,
-            "confidence":   e.confidence,
+            "tags": e.tags,
+            "confidence": e.confidence,
             "source_ticket": e.source_ticket,
         }
         for e in entries

@@ -10,21 +10,20 @@ from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Dict, List
 
-
 # ─────────────────────────────────────────────
 # Directory layout  (relative to repo root)
 # ─────────────────────────────────────────────
 
-REPO_ROOT       = Path(__file__).parent.parent
-CODE_DIR        = REPO_ROOT / "code"
-DATA_DIR        = REPO_ROOT / "data"
-ISSUES_DIR      = REPO_ROOT / "support_issues"
+REPO_ROOT = Path(__file__).parent.parent
+CODE_DIR = REPO_ROOT / "code"
+DATA_DIR = REPO_ROOT / "data"
+ISSUES_DIR = REPO_ROOT / "support_issues"
 
-CORPUS_CACHE    = DATA_DIR / "corpus_cache.jsonl"
+CORPUS_CACHE = DATA_DIR / "corpus_cache.jsonl"
 
-INPUT_CSV       = ISSUES_DIR / "support_issues.csv"
-SAMPLE_CSV      = ISSUES_DIR / "sample_support_issues.csv"
-OUTPUT_CSV      = ISSUES_DIR / "output.csv"
+INPUT_CSV = ISSUES_DIR / "support_issues.csv"
+SAMPLE_CSV = ISSUES_DIR / "sample_support_issues.csv"
+OUTPUT_CSV = ISSUES_DIR / "output.csv"
 
 
 # ─────────────────────────────────────────────
@@ -33,8 +32,8 @@ OUTPUT_CSV      = ISSUES_DIR / "output.csv"
 
 SUPPORT_URLS: Dict[str, str] = {
     "HackerRank": "https://support.hackerrank.com/",
-    "Claude":     "https://support.claude.com/en/",
-    "Visa":       "https://www.visa.co.in/support.html",
+    "Claude": "https://support.claude.com/en/",
+    "Visa": "https://www.visa.co.in/support.html",
 }
 
 # Article-listing endpoints for each knowledge base
@@ -79,32 +78,34 @@ COLLECTION_URLS: Dict[str, List[str]] = {
 # Scraping settings
 # ─────────────────────────────────────────────
 
+
 @dataclass
 class ScraperConfig:
     max_articles_per_collection: int = 30
     max_depth: int = 2
-    request_delay: float = 0.5       # seconds between requests
+    request_delay: float = 0.5  # seconds between requests
     timeout: float = 15.0
     max_concurrent: int = 5
-    chunk_size: int = 800            # text chunk size for splitting
+    chunk_size: int = 800  # text chunk size for splitting
     user_agent: str = (
         "Mozilla/5.0 (compatible; SupportTriageBot/1.0; "
         "+https://github.com/interviewstreet/hackerrank-orchestrate-may26)"
     )
-    min_content_length: int = 50     # skip pages with < N chars of text
+    min_content_length: int = 50  # skip pages with < N chars of text
 
 
 # ─────────────────────────────────────────────
 # Retrieval settings
 # ─────────────────────────────────────────────
 
+
 @dataclass
 class RetrieverConfig:
-    top_k: int = 6                   # docs to return to the agent
+    top_k: int = 6  # docs to return to the agent
     bm25_weight: float = 0.7
     tfidf_weight: float = 0.3
     min_score_threshold: float = 0.01
-    chunk_size: int = 800            # tokens (approx chars / 4)
+    chunk_size: int = 800  # tokens (approx chars / 4)
     chunk_overlap: int = 100
 
 
@@ -112,26 +113,46 @@ class RetrieverConfig:
 # Agent / LLM settings
 # ─────────────────────────────────────────────
 
+
 @dataclass
 class AgentConfig:
     model: str = "claude-sonnet-4-20250514"
     max_tokens: int = 1024
-    temperature: float = 0.0         # deterministic
+    temperature: float = 0.0  # deterministic
     seed: int = 42
 
     # High-risk patterns that force escalation before LLM call
-    escalation_keywords: list = field(default_factory=lambda: [
-        "fraud", "fraudulent", "unauthorized", "stolen", "hack",
-        "compromised", "account takeover", "phishing", "scam",
-        "chargeback", "dispute", "legal", "lawsuit", "sue",
-        "gdpr", "data breach", "leak", "lawsuit", "emergency",
-        "critical security", "harassment", "discrimination",
-    ])
+    escalation_keywords: list = field(
+        default_factory=lambda: [
+            "fraud",
+            "fraudulent",
+            "unauthorized",
+            "stolen",
+            "hack",
+            "compromised",
+            "account takeover",
+            "phishing",
+            "scam",
+            "chargeback",
+            "dispute",
+            "legal",
+            "lawsuit",
+            "sue",
+            "gdpr",
+            "data breach",
+            "leak",
+            "lawsuit",
+            "emergency",
+            "critical security",
+            "harassment",
+            "discrimination",
+        ]
+    )
 
 
-SCRAPER_CFG   = ScraperConfig()
+SCRAPER_CFG = ScraperConfig()
 RETRIEVER_CFG = RetrieverConfig()
-AGENT_CFG     = AgentConfig()
+AGENT_CFG = AgentConfig()
 
 # Read API key from env – never hardcoded
 ANTHROPIC_API_KEY: str = os.environ.get("ANTHROPIC_API_KEY", "")

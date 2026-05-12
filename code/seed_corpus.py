@@ -14,7 +14,6 @@ from __future__ import annotations
 from typing import List
 from models import CorpusChunk
 
-
 SEED_DOCUMENTS = [
     # ─────────────────────────────────────────────────────────────────
     # HACKERRANK
@@ -214,7 +213,6 @@ SEED_DOCUMENTS = [
             "- Code review (language, readability)"
         ),
     },
-
     # ─────────────────────────────────────────────────────────────────
     # CLAUDE
     # ─────────────────────────────────────────────────────────────────
@@ -435,7 +433,6 @@ SEED_DOCUMENTS = [
             "Console: platform.claude.com"
         ),
     },
-
     # ─────────────────────────────────────────────────────────────────
     # VISA
     # ─────────────────────────────────────────────────────────────────

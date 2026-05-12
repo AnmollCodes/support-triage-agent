@@ -9,6 +9,7 @@ Outputs:
   - For each ticket: is_duplicate bool, master_ticket_id, similarity_score
   - Dedup report: how many tickets were actually unique
 """
+
 from __future__ import annotations
 import math
 import re
@@ -19,18 +20,18 @@ from typing import Dict, List, Optional, Tuple
 
 @dataclass
 class DuplicateGroup:
-    master_idx:      int           # 1-indexed ticket number (primary)
-    duplicate_idxs:  List[int]     # 1-indexed duplicates
-    similarity:      float         # max similarity score (0-1)
-    shared_topic:    str
+    master_idx: int  # 1-indexed ticket number (primary)
+    duplicate_idxs: List[int]  # 1-indexed duplicates
+    similarity: float  # max similarity score (0-1)
+    shared_topic: str
 
 
 @dataclass
 class DedupResult:
-    is_duplicate:     bool  = False
-    master_ticket_id: int   = 0    # 1-indexed; 0 = no master
+    is_duplicate: bool = False
+    master_ticket_id: int = 0  # 1-indexed; 0 = no master
     similarity_score: float = 0.0
-    shared_topic:     str   = ""
+    shared_topic: str = ""
 
 
 _STOPWORDS = frozenset("""
@@ -75,7 +76,9 @@ def _cosine(a: Dict[str, float], b: Dict[str, float]) -> float:
 def _top_shared_terms(a: List[str], b: List[str], n: int = 3) -> str:
     sa, sb = set(a), set(b)
     shared = [t for t in (sa & sb) if len(t) > 3]
-    return ", ".join(sorted(shared, key=lambda t: -(a.count(t) + b.count(t)))[:n]) or "similar topic"
+    return (
+        ", ".join(sorted(shared, key=lambda t: -(a.count(t) + b.count(t)))[:n]) or "similar topic"
+    )
 
 
 def find_duplicates(
@@ -91,11 +94,11 @@ def find_duplicates(
         (per_ticket_results, duplicate_groups)
     """
     tokenized = [_tokenize(txt) for txt in issues]
-    vectors   = _tfidf_vectors(tokenized)
-    n         = len(issues)
+    vectors = _tfidf_vectors(tokenized)
+    n = len(issues)
 
     results: List[DedupResult] = [DedupResult() for _ in range(n)]
-    groups:  List[DuplicateGroup] = []
+    groups: List[DuplicateGroup] = []
 
     assigned = set()  # indices already claimed as duplicates
 
@@ -113,14 +116,16 @@ def find_duplicates(
 
         if dups:
             dup_idxs = [d[0] for d in dups]
-            max_sim  = max(d[1] for d in dups)
-            topic    = dups[0][2]
-            groups.append(DuplicateGroup(
-                master_idx=i + 1,
-                duplicate_idxs=[d + 1 for d in dup_idxs],
-                similarity=round(max_sim, 3),
-                shared_topic=topic,
-            ))
+            max_sim = max(d[1] for d in dups)
+            topic = dups[0][2]
+            groups.append(
+                DuplicateGroup(
+                    master_idx=i + 1,
+                    duplicate_idxs=[d + 1 for d in dup_idxs],
+                    similarity=round(max_sim, 3),
+                    shared_topic=topic,
+                )
+            )
             for j, sim, topic in dups:
                 assigned.add(j)
                 results[j] = DedupResult(

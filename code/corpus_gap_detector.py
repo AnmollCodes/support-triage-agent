@@ -24,9 +24,8 @@ from typing import List, Optional, Tuple
 
 from models import CorpusGapSignal, RetrievedDoc, SupportTicket
 
-
 # Minimum retrieval score to consider "covered"
-_COVERAGE_THRESHOLD   = 0.35
+_COVERAGE_THRESHOLD = 0.35
 # If top doc is from WRONG company, treat as gap
 _WRONG_COMPANY_PENALTY = 0.15
 
@@ -65,8 +64,7 @@ _TOPIC_DOC_SUGGESTIONS = {
 }
 
 _COMPILED_SUGGESTIONS = [
-    (re.compile(pat, re.I), title)
-    for pat, title in _TOPIC_DOC_SUGGESTIONS.items()
+    (re.compile(pat, re.I), title) for pat, title in _TOPIC_DOC_SUGGESTIONS.items()
 ]
 
 
@@ -139,15 +137,14 @@ def summarise_gaps(gaps: List[Tuple[int, CorpusGapSignal]]) -> dict:
 
     total = len(gaps)
     gap_count = sum(1 for _, g in gaps if g.gap_detected)
-    suggested = list({g.suggested_doc_title for _, g in gaps
-                      if g.gap_detected and g.suggested_doc_title})
+    suggested = list(
+        {g.suggested_doc_title for _, g in gaps if g.gap_detected and g.suggested_doc_title}
+    )
 
     return {
-        "total_tickets":    total,
-        "total_gaps":       gap_count,
-        "coverage_rate":    round(1 - gap_count / max(total, 1), 3),
+        "total_tickets": total,
+        "total_gaps": gap_count,
+        "coverage_rate": round(1 - gap_count / max(total, 1), 3),
         "suggested_articles": suggested[:10],
-        "avg_top_score":    round(
-            sum(g.max_retrieval_score for _, g in gaps) / max(total, 1), 3
-        ),
+        "avg_top_score": round(sum(g.max_retrieval_score for _, g in gaps) / max(total, 1), 3),
     }

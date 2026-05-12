@@ -21,6 +21,7 @@ Each log entry contains:
 
 The chain is verified at the end of every run — any tampering breaks the chain.
 """
+
 from __future__ import annotations
 import csv
 import hashlib
@@ -51,32 +52,32 @@ class AuditTrail:
 
     def record(
         self,
-        ticket_num:    int,
-        ticket:        SupportTicket,
-        result:        TriageResult,
-        pii_risk:      str = "low",
-        is_duplicate:  bool = False,
-        churn_score:   int = 0,
+        ticket_num: int,
+        ticket: SupportTicket,
+        result: TriageResult,
+        pii_risk: str = "low",
+        is_duplicate: bool = False,
+        churn_score: int = 0,
     ) -> str:
         """Record a triage decision. Returns the entry hash."""
         ts = datetime.now(timezone.utc).isoformat()
 
         entry_data = {
-            "seq":              ticket_num,
-            "timestamp":        ts,
+            "seq": ticket_num,
+            "timestamp": ts,
             "ticket_fingerprint": _ticket_fingerprint(ticket),
-            "company":          ticket.company,
-            "status":           result.status.value,
-            "product_area":     result.product_area,
-            "request_type":     result.request_type.value,
-            "urgency_tier":     result.urgency.tier.value,
+            "company": ticket.company,
+            "status": result.status.value,
+            "product_area": result.product_area,
+            "request_type": result.request_type.value,
+            "urgency_tier": result.urgency.tier.value,
             "confidence_score": result.confidence.score,
-            "quality_score":    result.quality.score,
-            "pii_risk_level":   pii_risk,
-            "is_duplicate":     is_duplicate,
+            "quality_score": result.quality.score,
+            "pii_risk_level": pii_risk,
+            "is_duplicate": is_duplicate,
             "churn_risk_score": churn_score,
             "incident_cluster": result.incident_cluster_id or "",
-            "prev_hash":        self._prev_hash,
+            "prev_hash": self._prev_hash,
         }
 
         # Compute entry hash
@@ -115,7 +116,7 @@ class AuditTrail:
             if e.get("prev_hash") != prev:
                 return False
             canonical = json.dumps(e, sort_keys=True, separators=(",", ":"))
-            computed  = _sha256(canonical)
+            computed = _sha256(canonical)
             if computed != stored_hash:
                 return False
             prev = stored_hash

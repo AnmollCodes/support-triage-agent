@@ -29,48 +29,124 @@ import unicodedata
 from typing import List, Tuple
 
 from models import (
-    ConfidenceSignal, LanguageSignal, Sentiment, SentimentSignal,
-    SupportTicket, UrgencySignal, UrgencyTier, VIPSignal,
+    ConfidenceSignal,
+    LanguageSignal,
+    Sentiment,
+    SentimentSignal,
+    SupportTicket,
+    UrgencySignal,
+    UrgencyTier,
+    VIPSignal,
 )
-
 
 # ══════════════════════════════════════════════════════════════════
 # FEATURE 1 — Sentiment & Emotional Tone Analyser
 # ══════════════════════════════════════════════════════════════════
 
 _ANGER_LEXICON = [
-    "unacceptable", "outrageous", "furious", "disgusting", "ridiculous",
-    "absurd", "incompetent", "useless", "terrible", "horrible",
-    "awful", "pathetic", "worst", "hate", "angry", "anger",
-    "demand", "immediately", "right now", "no excuse", "fire",
-    "lawsuit", "lawyer", "sue", "scam", "rip off", "ripoff",
+    "unacceptable",
+    "outrageous",
+    "furious",
+    "disgusting",
+    "ridiculous",
+    "absurd",
+    "incompetent",
+    "useless",
+    "terrible",
+    "horrible",
+    "awful",
+    "pathetic",
+    "worst",
+    "hate",
+    "angry",
+    "anger",
+    "demand",
+    "immediately",
+    "right now",
+    "no excuse",
+    "fire",
+    "lawsuit",
+    "lawyer",
+    "sue",
+    "scam",
+    "rip off",
+    "ripoff",
 ]
 
 _FRUSTRATION_LEXICON = [
-    "again", "still", "doesn't work", "not working", "broken",
-    "frustrated", "annoyed", "disappointing", "disappointed",
-    "wasted", "waste", "hours", "days", "weeks", "multiple times",
-    "keep", "keeps", "cannot", "can't", "unable", "fail", "failed",
-    "no response", "ignored", "nobody", "nothing works",
-    "why is it", "why won't", "how hard can",
+    "again",
+    "still",
+    "doesn't work",
+    "not working",
+    "broken",
+    "frustrated",
+    "annoyed",
+    "disappointing",
+    "disappointed",
+    "wasted",
+    "waste",
+    "hours",
+    "days",
+    "weeks",
+    "multiple times",
+    "keep",
+    "keeps",
+    "cannot",
+    "can't",
+    "unable",
+    "fail",
+    "failed",
+    "no response",
+    "ignored",
+    "nobody",
+    "nothing works",
+    "why is it",
+    "why won't",
+    "how hard can",
 ]
 
 _DISTRESS_LEXICON = [
-    "desperate", "urgent", "emergency", "critical", "need help now",
-    "losing money", "lost money", "blocked", "stuck", "helpless",
-    "please help", "begging", "important interview", "job offer",
-    "deadline", "tomorrow", "tonight", "losing access",
-    "cannot afford", "ruined",
+    "desperate",
+    "urgent",
+    "emergency",
+    "critical",
+    "need help now",
+    "losing money",
+    "lost money",
+    "blocked",
+    "stuck",
+    "helpless",
+    "please help",
+    "begging",
+    "important interview",
+    "job offer",
+    "deadline",
+    "tomorrow",
+    "tonight",
+    "losing access",
+    "cannot afford",
+    "ruined",
 ]
 
 _POSITIVE_LEXICON = [
-    "thank", "thanks", "great", "love", "excellent", "amazing",
-    "wonderful", "appreciate", "helpful", "happy", "satisfied",
-    "pleased", "good job", "well done",
+    "thank",
+    "thanks",
+    "great",
+    "love",
+    "excellent",
+    "amazing",
+    "wonderful",
+    "appreciate",
+    "helpful",
+    "happy",
+    "satisfied",
+    "pleased",
+    "good job",
+    "well done",
 ]
 
-_CAPS_RATIO_THRESHOLD  = 0.25   # >25% caps → amplify intensity
-_EXCL_THRESHOLD        = 2      # >2 exclamation marks → intensifier
+_CAPS_RATIO_THRESHOLD = 0.25  # >25% caps → amplify intensity
+_EXCL_THRESHOLD = 2  # >2 exclamation marks → intensifier
 
 
 def _count_matches(text: str, lexicon: List[str]) -> List[str]:
@@ -81,34 +157,34 @@ def _count_matches(text: str, lexicon: List[str]) -> List[str]:
 def analyse_sentiment(ticket: SupportTicket) -> SentimentSignal:
     text = f"{ticket.subject} {ticket.issue}"
 
-    anger_hits       = _count_matches(text, _ANGER_LEXICON)
+    anger_hits = _count_matches(text, _ANGER_LEXICON)
     frustration_hits = _count_matches(text, _FRUSTRATION_LEXICON)
-    distress_hits    = _count_matches(text, _DISTRESS_LEXICON)
-    positive_hits    = _count_matches(text, _POSITIVE_LEXICON)
+    distress_hits = _count_matches(text, _DISTRESS_LEXICON)
+    positive_hits = _count_matches(text, _POSITIVE_LEXICON)
 
     # Intensity amplifiers
     total_alpha = sum(1 for c in text if c.isalpha())
-    caps_ratio  = sum(1 for c in text if c.isupper()) / max(total_alpha, 1)
-    excl_count  = text.count("!")
-    amplifier   = 1.0
+    caps_ratio = sum(1 for c in text if c.isupper()) / max(total_alpha, 1)
+    excl_count = text.count("!")
+    amplifier = 1.0
     if caps_ratio > _CAPS_RATIO_THRESHOLD:
         amplifier += 0.3
     if excl_count > _EXCL_THRESHOLD:
         amplifier += 0.2
 
     # Score each category
-    a = len(anger_hits)       * 1.5 * amplifier
+    a = len(anger_hits) * 1.5 * amplifier
     f = len(frustration_hits) * 1.0 * amplifier
-    d = len(distress_hits)    * 1.2 * amplifier
-    p = len(positive_hits)    * 1.0
+    d = len(distress_hits) * 1.2 * amplifier
+    p = len(positive_hits) * 1.0
 
     scores = {"angry": a, "frustrated": f, "distressed": d, "positive": p}
     dominant = max(scores, key=scores.get)
     dominant_score = scores[dominant]
 
     if dominant_score < 1.0:
-        sentiment  = Sentiment.NEUTRAL
-        intensity  = 0.0
+        sentiment = Sentiment.NEUTRAL
+        intensity = 0.0
         markers: List[str] = []
     else:
         sentiment = Sentiment(dominant)
@@ -166,44 +242,44 @@ def compute_urgency(
 
     # Base from patterns
     if _P0_PATTERNS.search(text):
-        tier      = UrgencyTier.P0_CRITICAL
-        sla       = 1
-        score     = 0.95
-        found     = _P0_PATTERNS.findall(text.lower())
-        triggers  = [f[0] if isinstance(f, tuple) else f for f in found[:3]]
+        tier = UrgencyTier.P0_CRITICAL
+        sla = 1
+        score = 0.95
+        found = _P0_PATTERNS.findall(text.lower())
+        triggers = [f[0] if isinstance(f, tuple) else f for f in found[:3]]
     elif _P1_PATTERNS.search(text):
-        tier  = UrgencyTier.P1_HIGH
-        sla   = 4
+        tier = UrgencyTier.P1_HIGH
+        sla = 4
         score = 0.70
         found = _P1_PATTERNS.findall(text.lower())
         triggers = [f[0] if isinstance(f, tuple) else f for f in found[:3]]
     elif _P2_PATTERNS.search(text):
-        tier  = UrgencyTier.P2_MEDIUM
-        sla   = 24
+        tier = UrgencyTier.P2_MEDIUM
+        sla = 24
         score = 0.40
         found = _P2_PATTERNS.findall(text.lower())
         triggers = [f[0] if isinstance(f, tuple) else f for f in found[:3]]
     else:
-        tier  = UrgencyTier.P3_LOW
-        sla   = 72
+        tier = UrgencyTier.P3_LOW
+        sla = 72
         score = 0.10
 
     # Escalate urgency if sentiment is very angry/distressed
     if sentiment.sentiment in (Sentiment.ANGRY, Sentiment.DISTRESSED) and sentiment.intensity > 0.5:
         if tier == UrgencyTier.P3_LOW:
-            tier  = UrgencyTier.P2_MEDIUM
-            sla   = 24
+            tier = UrgencyTier.P2_MEDIUM
+            sla = 24
             score = max(score, 0.45)
         elif tier == UrgencyTier.P2_MEDIUM:
-            tier  = UrgencyTier.P1_HIGH
-            sla   = 4
+            tier = UrgencyTier.P1_HIGH
+            sla = 4
             score = max(score, 0.72)
         triggers.append(f"sentiment:{sentiment.sentiment.value}")
 
     # Escalated tickets auto-bump to at least P1
     if is_escalated and tier not in (UrgencyTier.P0_CRITICAL,):
-        tier  = UrgencyTier.P1_HIGH
-        sla   = min(sla, 4)
+        tier = UrgencyTier.P1_HIGH
+        sla = min(sla, 4)
         score = max(score, 0.70)
 
     return UrgencySignal(
@@ -219,29 +295,58 @@ def compute_urgency(
 # ══════════════════════════════════════════════════════════════════
 
 _VIP_PATTERNS = [
-    (re.compile(r"\b(enterprise|fortune\s*500|large\s+org|our\s+company|our\s+team"
-                r"|our\s+organization|we\s+use\s+hackerrank|we\s+pay)\b", re.I),
-     "enterprise_language"),
-    (re.compile(r"\b(thousands?\s+of\s+(users|candidates|employees)"
-                r"|hundreds?\s+of\s+(users|candidates)|large\s+scale)\b", re.I),
-     "high_volume_usage"),
-    (re.compile(r"\b(\$[5-9]\d{2,}|\$[0-9]{4,}|\d{4,}\s*dollar"
-                r"|annual\s+contract|multi.year)\b", re.I),
-     "high_billing_amount"),
-    (re.compile(r"\b(cto|ceo|vp\s+of|head\s+of\s+engineering|director\s+of"
-                r"|chief|founder|president)\b", re.I),
-     "executive_title"),
-    (re.compile(r"\b(priority\s+support|dedicated\s+support|account\s+manager"
-                r"|customer\s+success|sla\s+agreement)\b", re.I),
-     "expects_priority_support"),
-    (re.compile(r"\b(switch\s+to\s+competitor|cancel\s+(our\s+)?plan|moving\s+away"
-                r"|evaluating\s+alternatives|looking\s+for\s+alternatives)\b", re.I),
-     "churn_risk"),
+    (
+        re.compile(
+            r"\b(enterprise|fortune\s*500|large\s+org|our\s+company|our\s+team"
+            r"|our\s+organization|we\s+use\s+hackerrank|we\s+pay)\b",
+            re.I,
+        ),
+        "enterprise_language",
+    ),
+    (
+        re.compile(
+            r"\b(thousands?\s+of\s+(users|candidates|employees)"
+            r"|hundreds?\s+of\s+(users|candidates)|large\s+scale)\b",
+            re.I,
+        ),
+        "high_volume_usage",
+    ),
+    (
+        re.compile(
+            r"\b(\$[5-9]\d{2,}|\$[0-9]{4,}|\d{4,}\s*dollar" r"|annual\s+contract|multi.year)\b",
+            re.I,
+        ),
+        "high_billing_amount",
+    ),
+    (
+        re.compile(
+            r"\b(cto|ceo|vp\s+of|head\s+of\s+engineering|director\s+of"
+            r"|chief|founder|president)\b",
+            re.I,
+        ),
+        "executive_title",
+    ),
+    (
+        re.compile(
+            r"\b(priority\s+support|dedicated\s+support|account\s+manager"
+            r"|customer\s+success|sla\s+agreement)\b",
+            re.I,
+        ),
+        "expects_priority_support",
+    ),
+    (
+        re.compile(
+            r"\b(switch\s+to\s+competitor|cancel\s+(our\s+)?plan|moving\s+away"
+            r"|evaluating\s+alternatives|looking\s+for\s+alternatives)\b",
+            re.I,
+        ),
+        "churn_risk",
+    ),
 ]
 
 
 def detect_vip(ticket: SupportTicket) -> VIPSignal:
-    text    = f"{ticket.subject} {ticket.issue}"
+    text = f"{ticket.subject} {ticket.issue}"
     signals = []
     for pattern, label in _VIP_PATTERNS:
         if pattern.search(text):
@@ -255,54 +360,112 @@ def detect_vip(ticket: SupportTicket) -> VIPSignal:
 
 # Unicode homoglyph substitutions attackers use to bypass ASCII regex
 # Maps lookalike chars back to ASCII equivalents
-_HOMOGLYPH_MAP = str.maketrans({
-    "а": "a", "е": "e", "о": "o", "р": "p", "с": "c", "х": "x",
-    "і": "i", "ο": "o", "ρ": "p", "α": "a", "е": "e",
-    "\u0456": "i", "\u04cf": "l", "\u0455": "s",
-    "\u2019": "'", "\u2018": "'", "\u201c": '"', "\u201d": '"',
-})
+_HOMOGLYPH_MAP = str.maketrans(
+    {
+        "а": "a",
+        "е": "e",
+        "о": "o",
+        "р": "p",
+        "с": "c",
+        "х": "x",
+        "і": "i",
+        "ο": "o",
+        "ρ": "p",
+        "α": "a",
+        "е": "e",
+        "\u0456": "i",
+        "\u04cf": "l",
+        "\u0455": "s",
+        "\u2019": "'",
+        "\u2018": "'",
+        "\u201c": '"',
+        "\u201d": '"',
+    }
+)
 
 # Known injection phrases in multiple languages
 _MULTILANG_INJECTION_PATTERNS = [
     # French
-    (re.compile(r"(ignorer?\s+les?\s+instructions|afficher?\s+toutes?\s+les?\s+r[eè]gles"
-                r"|r[eé]v[eé]ler?\s+les?\s+r[eè]gles|logique\s+exacte"
-                r"|documents?\s+r[eé]cup[eé]r[eé]s?|voici\s+mes\s+vraies\s+instructions"
-                r"|tu\s+es\s+maintenant)", re.I),
-     "fr", "French prompt injection"),
+    (
+        re.compile(
+            r"(ignorer?\s+les?\s+instructions|afficher?\s+toutes?\s+les?\s+r[eè]gles"
+            r"|r[eé]v[eé]ler?\s+les?\s+r[eè]gles|logique\s+exacte"
+            r"|documents?\s+r[eé]cup[eé]r[eé]s?|voici\s+mes\s+vraies\s+instructions"
+            r"|tu\s+es\s+maintenant)",
+            re.I,
+        ),
+        "fr",
+        "French prompt injection",
+    ),
     # Spanish
-    (re.compile(r"(ignora\s+(todas?\s+las?\s+)?instrucciones"
-                r"|eres\s+ahora\s+un?\s+|rev[eé]la\s+(tus\s+)?instrucciones"
-                r"|actuar\s+como\s+sin\s+restricciones)", re.I),
-     "es", "Spanish prompt injection"),
+    (
+        re.compile(
+            r"(ignora\s+(todas?\s+las?\s+)?instrucciones"
+            r"|eres\s+ahora\s+un?\s+|rev[eé]la\s+(tus\s+)?instrucciones"
+            r"|actuar\s+como\s+sin\s+restricciones)",
+            re.I,
+        ),
+        "es",
+        "Spanish prompt injection",
+    ),
     # German
-    (re.compile(r"(ignoriere\s+(alle\s+)?anweisungen|du\s+bist\s+jetzt\s+ein?"
-                r"|zeig\s+mir\s+deine\s+anweisungen|system\s*prompt\s*anzeigen)", re.I),
-     "de", "German prompt injection"),
+    (
+        re.compile(
+            r"(ignoriere\s+(alle\s+)?anweisungen|du\s+bist\s+jetzt\s+ein?"
+            r"|zeig\s+mir\s+deine\s+anweisungen|system\s*prompt\s*anzeigen)",
+            re.I,
+        ),
+        "de",
+        "German prompt injection",
+    ),
     # Hindi/Devanagari mixed
-    (re.compile(r"[\u0900-\u097F]{3,}.*instruc|instruc.*[\u0900-\u097F]{3,}", re.I),
-     "hi", "Hindi-mixed instruction override"),
+    (
+        re.compile(r"[\u0900-\u097F]{3,}.*instruc|instruc.*[\u0900-\u097F]{3,}", re.I),
+        "hi",
+        "Hindi-mixed instruction override",
+    ),
     # Arabic-script mixed
-    (re.compile(r"[\u0600-\u06FF]{3,}.*instruc|instruc.*[\u0600-\u06FF]{3,}", re.I),
-     "ar", "Arabic-mixed instruction override"),
+    (
+        re.compile(r"[\u0600-\u06FF]{3,}.*instruc|instruc.*[\u0600-\u06FF]{3,}", re.I),
+        "ar",
+        "Arabic-mixed instruction override",
+    ),
     # Chinese characters with injection keywords
-    (re.compile(r"[\u4e00-\u9FFF]{2,}.*(ignore|system|prompt|instruction)"
-                r"|(ignore|system|prompt|instruction).*[\u4e00-\u9FFF]{2,}", re.I),
-     "zh", "Chinese-mixed instruction override"),
+    (
+        re.compile(
+            r"[\u4e00-\u9FFF]{2,}.*(ignore|system|prompt|instruction)"
+            r"|(ignore|system|prompt|instruction).*[\u4e00-\u9FFF]{2,}",
+            re.I,
+        ),
+        "zh",
+        "Chinese-mixed instruction override",
+    ),
     # Base64-encoded "ignore instructions"
-    (re.compile(r"aWdub3Jl|aW5zdHJ1Y3Rpb24|c3lzdGVtIHByb21wdA", re.I),
-     "b64", "Base64-encoded injection"),
+    (
+        re.compile(r"aWdub3Jl|aW5zdHJ1Y3Rpb24|c3lzdGVtIHByb21wdA", re.I),
+        "b64",
+        "Base64-encoded injection",
+    ),
     # Leetspeak / character substitution
-    (re.compile(r"(1gn[o0]r3|1nstruct10n|syst3m\s*pr0mpt|j41lbr[e3][a4]k)", re.I),
-     "leet", "Leetspeak injection attempt"),
+    (
+        re.compile(r"(1gn[o0]r3|1nstruct10n|syst3m\s*pr0mpt|j41lbr[e3][a4]k)", re.I),
+        "leet",
+        "Leetspeak injection attempt",
+    ),
 ]
+
 
 # Script detection heuristics
 def _detect_script(text: str) -> str:
     """Quick script detection by Unicode block frequency."""
     counts = {
-        "ar": 0, "zh": 0, "hi": 0, "ru": 0,
-        "fr": 0, "es": 0, "de": 0,
+        "ar": 0,
+        "zh": 0,
+        "hi": 0,
+        "ru": 0,
+        "fr": 0,
+        "es": 0,
+        "de": 0,
     }
     for ch in text:
         cp = ord(ch)
@@ -348,8 +511,8 @@ def analyse_language(ticket: SupportTicket) -> LanguageSignal:
         if pattern.search(normalized) or pattern.search(text):
             injection_found = True
             is_multilingual = True
-            detected_lang   = lang_code
-            matched_label   = label
+            detected_lang = lang_code
+            matched_label = label
             break
 
     # Check if non-English even without injection
@@ -385,6 +548,7 @@ def analyse_language(ticket: SupportTicket) -> LanguageSignal:
 # ══════════════════════════════════════════════════════════════════
 # Confidence Scoring helper  (used by run_agent to enrich results)
 # ══════════════════════════════════════════════════════════════════
+
 
 def compute_confidence(
     retrieval_scores: List[float],

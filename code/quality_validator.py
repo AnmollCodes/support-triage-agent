@@ -30,7 +30,6 @@ from typing import List, Tuple
 
 from models import QualitySignal, RetrievedDoc, SupportTicket, TicketStatus
 
-
 # ── Groundedness red-flags: phrases a hallucinating LLM or template engine
 #    might produce that aren't grounded in any of the corpus documents ───────
 
@@ -78,9 +77,13 @@ def _extract_questions_from_issue(issue: str) -> List[str]:
     # Questions marked with ?
     for sentence in re.split(r"[.!?]", issue):
         sentence = sentence.strip()
-        if len(sentence) > 10 and "?" in issue and any(
-            kw in sentence.lower() for kw in
-            ["how", "what", "why", "when", "where", "can i", "is it", "do i", "will"]
+        if (
+            len(sentence) > 10
+            and "?" in issue
+            and any(
+                kw in sentence.lower()
+                for kw in ["how", "what", "why", "when", "where", "can i", "is it", "do i", "will"]
+            )
         ):
             topics.append(sentence[:80])
     # Enumerate sub-issues (numbered lists in the issue)
@@ -89,9 +92,7 @@ def _extract_questions_from_issue(issue: str) -> List[str]:
     return topics[:4]
 
 
-def _check_relevance(
-    issue: str, response: str, company: str
-) -> Tuple[bool, List[str]]:
+def _check_relevance(issue: str, response: str, company: str) -> Tuple[bool, List[str]]:
     """Check if the response actually addresses the issue."""
     issues_found = []
 
@@ -101,12 +102,26 @@ def _check_relevance(
         return False, issues_found
 
     # Check keyword overlap between issue and response
-    issue_tokens   = set(re.findall(r"\b[a-z]{4,}\b", issue.lower()))
+    issue_tokens = set(re.findall(r"\b[a-z]{4,}\b", issue.lower()))
     response_tokens = set(re.findall(r"\b[a-z]{4,}\b", response.lower()))
     # Remove extremely common words
-    stopwords = {"this", "that", "with", "your", "have", "will", "from",
-                 "they", "their", "also", "more", "about", "into", "which"}
-    issue_tokens   -= stopwords
+    stopwords = {
+        "this",
+        "that",
+        "with",
+        "your",
+        "have",
+        "will",
+        "from",
+        "they",
+        "their",
+        "also",
+        "more",
+        "about",
+        "into",
+        "which",
+    }
+    issue_tokens -= stopwords
     response_tokens -= stopwords
 
     if issue_tokens:
@@ -151,7 +166,9 @@ def _check_actionability(response: str, status: str) -> Tuple[float, List[str]]:
 
     action_hits = len(_ACTIONABILITY_SIGNALS.findall(response))
     if action_hits == 0 and len(response) > 200:
-        issues_found.append("Response lacks actionable instructions (no steps, links, or clear next actions).")
+        issues_found.append(
+            "Response lacks actionable instructions (no steps, links, or clear next actions)."
+        )
         score = 0.4
     elif action_hits < 2:
         score = 0.6
@@ -161,31 +178,41 @@ def _check_actionability(response: str, status: str) -> Tuple[float, List[str]]:
     return score, issues_found
 
 
-def _generate_follow_up_questions(
-    ticket: SupportTicket, response: str
-) -> List[str]:
+def _generate_follow_up_questions(ticket: SupportTicket, response: str) -> List[str]:
     """Generate follow-up questions an agent might need to ask."""
     questions = []
     issue = ticket.issue.lower()
 
-    if re.search(r"\b(error|fail|not\s+work|crash)\b", issue) and \
-       "error message" not in issue and "error:" not in issue:
+    if (
+        re.search(r"\b(error|fail|not\s+work|crash)\b", issue)
+        and "error message" not in issue
+        and "error:" not in issue
+    ):
         questions.append("Could you share the exact error message you're seeing?")
 
-    if re.search(r"\b(account|login|access)\b", issue) and \
-       "email" not in issue and "@" not in issue:
+    if (
+        re.search(r"\b(account|login|access)\b", issue)
+        and "email" not in issue
+        and "@" not in issue
+    ):
         questions.append("What is the email address associated with your account?")
 
     if re.search(r"\b(yesterday|last\s+week|recently|since)\b", issue):
         questions.append("When exactly did this issue first occur? (date and time if possible)")
 
-    if re.search(r"\b(browser|app|mobile|desktop)\b", issue) and \
-       "chrome" not in issue and "firefox" not in issue and "safari" not in issue:
+    if (
+        re.search(r"\b(browser|app|mobile|desktop)\b", issue)
+        and "chrome" not in issue
+        and "firefox" not in issue
+        and "safari" not in issue
+    ):
         questions.append("Which browser or device are you using?")
 
-    if ticket.company == "Visa" and \
-       re.search(r"\b(transaction|charge|payment)\b", issue) and \
-       not re.search(r"\$[\d,]+|\d+\s*rupee|\d+\s*inr", issue):
+    if (
+        ticket.company == "Visa"
+        and re.search(r"\b(transaction|charge|payment)\b", issue)
+        and not re.search(r"\$[\d,]+|\d+\s*rupee|\d+\s*inr", issue)
+    ):
         questions.append("What is the transaction amount and date?")
 
     return questions[:3]
@@ -225,15 +252,15 @@ def validate_response(
         all_issues.append(f"Response is very long ({resp_len} chars) — may need trimming.")
 
     # Compute overall quality score
-    relevance_score    = 1.0 if relevant else 0.3
+    relevance_score = 1.0 if relevant else 0.3
     groundedness_score = 1.0 if grounded else 0.2
-    corpus_score       = 1.0 if corpus_supported else 0.5
+    corpus_score = 1.0 if corpus_supported else 0.5
 
     quality = round(
-        relevance_score    * 0.35 +
-        groundedness_score * 0.25 +
-        action_score       * 0.25 +
-        corpus_score       * 0.15,
+        relevance_score * 0.35
+        + groundedness_score * 0.25
+        + action_score * 0.25
+        + corpus_score * 0.15,
         3,
     )
 

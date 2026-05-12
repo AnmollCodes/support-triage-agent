@@ -27,40 +27,80 @@ from collections import defaultdict
 from typing import Dict, List, Optional, Tuple
 
 from models import (
-    IncidentReport, IncidentSeverity, SupportTicket,
-    TriageResult, UrgencyTier,
+    IncidentReport,
+    IncidentSeverity,
+    SupportTicket,
+    TriageResult,
+    UrgencyTier,
 )
-
 
 # ── Symptom extraction ────────────────────────────────────────────
 
 _SYMPTOM_PATTERNS: List[Tuple[str, re.Pattern]] = [
-    ("login_failure",       re.compile(r"\b(can['\s]+t\s+log\s*(in|out)|login\s+fail|sign\s+in\s+fail|invalid\s+credentials)\b", re.I)),
-    ("submission_fail",     re.compile(r"\b(submission.*fail|code.*not\s+submit|submit.*error|run.*fail)\b", re.I)),
-    ("assessment_down",     re.compile(r"\b(assessment.*not\s+(load|work|open)|test.*unavailable|assessment.*error)\b", re.I)),
-    ("payment_fail",        re.compile(r"\b(payment.*fail|payment.*error|billing.*error|charge.*fail)\b", re.I)),
-    ("api_down",            re.compile(r"\b(api.*fail|api.*error|all\s+requests.*fail|requests\s+failing)\b", re.I)),
-    ("card_declined",       re.compile(r"\b(card.*declin|transaction.*fail|payment.*declin)\b", re.I)),
-    ("interview_issue",     re.compile(r"\b(interview.*not\s+(work|load)|zoom.*fail|live\s+coding.*error)\b", re.I)),
-    ("account_locked",      re.compile(r"\b(account.*locked|account.*blocked|access.*denied|locked\s+out)\b", re.I)),
-    ("page_not_loading",    re.compile(r"\b(page.*not\s+load|page.*blank|infinite\s+spin|white\s+screen)\b", re.I)),
-    ("slow_performance",    re.compile(r"\b(very\s+slow|extremely\s+slow|timing\s+out|timeout|taking\s+too\s+long)\b", re.I)),
-    ("email_not_received",  re.compile(r"\b(email.*not\s+receiv|invitation.*not\s+arriv|no\s+email)\b", re.I)),
+    (
+        "login_failure",
+        re.compile(
+            r"\b(can['\s]+t\s+log\s*(in|out)|login\s+fail|sign\s+in\s+fail|invalid\s+credentials)\b",
+            re.I,
+        ),
+    ),
+    (
+        "submission_fail",
+        re.compile(r"\b(submission.*fail|code.*not\s+submit|submit.*error|run.*fail)\b", re.I),
+    ),
+    (
+        "assessment_down",
+        re.compile(
+            r"\b(assessment.*not\s+(load|work|open)|test.*unavailable|assessment.*error)\b", re.I
+        ),
+    ),
+    (
+        "payment_fail",
+        re.compile(r"\b(payment.*fail|payment.*error|billing.*error|charge.*fail)\b", re.I),
+    ),
+    (
+        "api_down",
+        re.compile(r"\b(api.*fail|api.*error|all\s+requests.*fail|requests\s+failing)\b", re.I),
+    ),
+    ("card_declined", re.compile(r"\b(card.*declin|transaction.*fail|payment.*declin)\b", re.I)),
+    (
+        "interview_issue",
+        re.compile(r"\b(interview.*not\s+(work|load)|zoom.*fail|live\s+coding.*error)\b", re.I),
+    ),
+    (
+        "account_locked",
+        re.compile(r"\b(account.*locked|account.*blocked|access.*denied|locked\s+out)\b", re.I),
+    ),
+    (
+        "page_not_loading",
+        re.compile(r"\b(page.*not\s+load|page.*blank|infinite\s+spin|white\s+screen)\b", re.I),
+    ),
+    (
+        "slow_performance",
+        re.compile(
+            r"\b(very\s+slow|extremely\s+slow|timing\s+out|timeout|taking\s+too\s+long)\b", re.I
+        ),
+    ),
+    (
+        "email_not_received",
+        re.compile(r"\b(email.*not\s+receiv|invitation.*not\s+arriv|no\s+email)\b", re.I),
+    ),
     ("resume_builder_down", re.compile(r"\b(resume\s+builder.*not|resume.*not\s+load)\b", re.I)),
-    ("claude_not_responding", re.compile(r"\b(claude.*not\s+respond|claude.*stopped|claude.*down|not\s+generat)\b", re.I)),
+    (
+        "claude_not_responding",
+        re.compile(r"\b(claude.*not\s+respond|claude.*stopped|claude.*down|not\s+generat)\b", re.I),
+    ),
 ]
 
 
-def _extract_symptom_fingerprint(
-    ticket: SupportTicket, result: TriageResult
-) -> str:
+def _extract_symptom_fingerprint(ticket: SupportTicket, result: TriageResult) -> str:
     """
     Creates a reproducible fingerprint string representing the core symptom.
     Tickets with the same fingerprint are considered related incidents.
     """
     company = (ticket.company or "unknown").lower().replace(" ", "_")
-    area    = (result.product_area or "general").lower().replace(" ", "_")
-    text    = f"{ticket.subject} {ticket.issue}".lower()
+    area = (result.product_area or "general").lower().replace(" ", "_")
+    text = f"{ticket.subject} {ticket.issue}".lower()
 
     for symptom_name, pattern in _SYMPTOM_PATTERNS:
         if pattern.search(text):
@@ -68,8 +108,20 @@ def _extract_symptom_fingerprint(
 
     # Fallback: use top 3 non-stop keywords from the issue
     tokens = re.findall(r"\b[a-z]{5,}\b", text)
-    stopwords = {"about", "their", "there", "which", "these", "those",
-                 "would", "could", "should", "please", "thank", "hello"}
+    stopwords = {
+        "about",
+        "their",
+        "there",
+        "which",
+        "these",
+        "those",
+        "would",
+        "could",
+        "should",
+        "please",
+        "thank",
+        "hello",
+    }
     keywords = [t for t in tokens if t not in stopwords]
     top3 = sorted(set(keywords), key=keywords.count, reverse=True)[:3]
     return f"{company}::{area}::" + "_".join(top3) if top3 else f"{company}::{area}::general"
@@ -86,7 +138,7 @@ def _severity(ticket_count: int, has_p0: bool) -> IncidentSeverity:
 def _draft_auto_response(symptom: str, company: str, area: str) -> str:
     """Draft a canned mass-response for affected users."""
     company_display = company.title()
-    area_display    = area.replace("_", " ").title()
+    area_display = area.replace("_", " ").title()
 
     if "down" in symptom or "fail" in symptom or "error" in symptom:
         return (
@@ -151,16 +203,13 @@ def detect_incidents(
             continue  # Not an outbreak — isolated ticket
 
         # Determine severity
-        has_p0 = any(
-            results[i].urgency.tier == UrgencyTier.P0_CRITICAL
-            for i in indices
-        )
+        has_p0 = any(results[i].urgency.tier == UrgencyTier.P0_CRITICAL for i in indices)
         sev = _severity(len(indices), has_p0)
 
         # Parse fingerprint parts
-        parts   = fingerprint.split("::")
+        parts = fingerprint.split("::")
         company = parts[0].replace("_", " ").title() if len(parts) > 0 else "Unknown"
-        area    = parts[1].replace("_", " ").title() if len(parts) > 1 else "General"
+        area = parts[1].replace("_", " ").title() if len(parts) > 1 else "General"
         symptom = parts[2] if len(parts) > 2 else "unknown_symptom"
 
         cid = _cluster_id(fingerprint)
@@ -171,6 +220,7 @@ def detect_incidents(
             words = re.findall(r"\b[a-z]{5,}\b", tickets[i].issue.lower())
             symptom_texts.extend(words[:5])
         from collections import Counter
+
         common = [w for w, _ in Counter(symptom_texts).most_common(6)]
 
         report = IncidentReport(
@@ -189,10 +239,12 @@ def detect_incidents(
             common_symptoms=common,
             recommended_action=(
                 "Escalate to on-call engineering team immediately."
-                if sev == IncidentSeverity.SEV1 else
-                "Notify product team and monitor for additional tickets."
-                if sev == IncidentSeverity.SEV2 else
-                "Log pattern; re-evaluate if count increases."
+                if sev == IncidentSeverity.SEV1
+                else (
+                    "Notify product team and monitor for additional tickets."
+                    if sev == IncidentSeverity.SEV2
+                    else "Log pattern; re-evaluate if count increases."
+                )
             ),
             auto_response_draft=_draft_auto_response(symptom, company, area),
         )

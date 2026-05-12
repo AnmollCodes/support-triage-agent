@@ -19,6 +19,7 @@ Output:
   health_color:  str   ["green", "yellow", "orange", "red"]
   health_summary: str  — one-line explanation
 """
+
 from __future__ import annotations
 from dataclasses import dataclass
 from models import Sentiment, SupportTicket, TriageResult, UrgencyTier
@@ -27,10 +28,10 @@ from churn_risk import ChurnRiskResult
 
 @dataclass
 class HealthScoreResult:
-    health_score:   int   = 100
-    health_label:   str   = "Healthy"
-    health_color:   str   = "green"
-    health_summary: str   = ""
+    health_score: int = 100
+    health_label: str = "Healthy"
+    health_color: str = "green"
+    health_summary: str = ""
     component_scores: dict = None
 
     def __post_init__(self):
@@ -39,16 +40,16 @@ class HealthScoreResult:
 
 
 _SENTIMENT_SCORE = {
-    Sentiment.POSITIVE:   100,
-    Sentiment.NEUTRAL:    65,
+    Sentiment.POSITIVE: 100,
+    Sentiment.NEUTRAL: 65,
     Sentiment.FRUSTRATED: 30,
     Sentiment.DISTRESSED: 20,
-    Sentiment.ANGRY:      5,
+    Sentiment.ANGRY: 5,
 }
 _URGENCY_SCORE = {
-    UrgencyTier.P3_LOW:      100,
-    UrgencyTier.P2_MEDIUM:   60,
-    UrgencyTier.P1_HIGH:     25,
+    UrgencyTier.P3_LOW: 100,
+    UrgencyTier.P2_MEDIUM: 60,
+    UrgencyTier.P1_HIGH: 25,
     UrgencyTier.P0_CRITICAL: 5,
 }
 
@@ -59,35 +60,35 @@ def compute_health_score(
     churn: ChurnRiskResult,
 ) -> HealthScoreResult:
 
-    sentiment_s  = _SENTIMENT_SCORE.get(result.sentiment.sentiment, 65)
-    urgency_s    = _URGENCY_SCORE.get(result.urgency.tier, 60)
+    sentiment_s = _SENTIMENT_SCORE.get(result.sentiment.sentiment, 65)
+    urgency_s = _URGENCY_SCORE.get(result.urgency.tier, 60)
     confidence_s = int(result.confidence.score * 100)
-    quality_s    = int(result.quality.score    * 100)
-    churn_s      = 100 - churn.churn_risk_score   # inverse churn risk
-    vip_s        = 60 if result.vip.is_vip else 90  # VIP = more scrutiny needed
+    quality_s = int(result.quality.score * 100)
+    churn_s = 100 - churn.churn_risk_score  # inverse churn risk
+    vip_s = 60 if result.vip.is_vip else 90  # VIP = more scrutiny needed
 
     # Weighted composite
     score = int(
-        sentiment_s  * 0.25 +
-        urgency_s    * 0.20 +
-        confidence_s * 0.15 +
-        quality_s    * 0.15 +
-        churn_s      * 0.15 +
-        vip_s        * 0.10
+        sentiment_s * 0.25
+        + urgency_s * 0.20
+        + confidence_s * 0.15
+        + quality_s * 0.15
+        + churn_s * 0.15
+        + vip_s * 0.10
     )
     score = max(0, min(100, score))
 
     if score >= 75:
-        label, color = "Healthy",    "green"
+        label, color = "Healthy", "green"
         summary = f"Customer appears satisfied. Standard follow-up is appropriate."
     elif score >= 50:
-        label, color = "At Risk",    "yellow"
+        label, color = "At Risk", "yellow"
         summary = f"Some dissatisfaction signals detected. Proactive outreach recommended."
     elif score >= 25:
-        label, color = "Critical",   "orange"
+        label, color = "Critical", "orange"
         summary = f"High dissatisfaction. Assign CSM immediately and prioritise resolution."
     else:
-        label, color = "Red Alert",  "red"
+        label, color = "Red Alert", "red"
         summary = f"Severe distress signals. Escalate to senior support and executive sponsor."
 
     return HealthScoreResult(
@@ -96,11 +97,11 @@ def compute_health_score(
         health_color=color,
         health_summary=summary,
         component_scores={
-            "sentiment":  sentiment_s,
-            "urgency":    urgency_s,
+            "sentiment": sentiment_s,
+            "urgency": urgency_s,
             "confidence": confidence_s,
-            "quality":    quality_s,
-            "churn_inv":  churn_s,
+            "quality": quality_s,
+            "churn_inv": churn_s,
             "vip_factor": vip_s,
         },
     )
