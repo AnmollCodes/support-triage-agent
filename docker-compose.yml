@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  # Main agent service
+  agent:
+    build: .
+    container_name: support-triage-agent
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./support_issues:/app/support_issues
+      - ./output:/app/output
+    command: python code/run_agent.py
+
+  # FastAPI server
+  api:
+    build: .
+    container_name: support-triage-api
+    ports:
+      - "8000:8000"
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./output:/app/output
+    command: uvicorn code.api_server:app --host 0.0.0.0 --port 8000
+    depends_on:
+      - agent
+
+  # Demo website
+  web:
+    image: nginx:alpine
+    container_name: support-triage-web
+    ports:
+      - "80:80"
+    volumes:
+      - ./demo:/usr/share/nginx/html
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - api
+
+volumes:
+  output:
+    driver: local

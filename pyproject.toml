@@ -1,0 +1,94 @@
+[build-system]
+requires = ["setuptools>=65.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "support-triage-agent"
+version = "1.0.0"
+description = "🎯 Multi-domain AI support triage agent with 18 intelligence features. Classifies, prioritizes, responds to, and escalates support tickets. BM25+TF-IDF retrieval, zero hallucination, SOC 2 compliant, GDPR-ready."
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "Anmoll", email = "anmoll@example.com"}
+]
+keywords = [
+    "support",
+    "triage",
+    "ai",
+    "classification",
+    "chatbot",
+    "customer-service",
+    "nlp",
+    "machine-learning"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Customer Service",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+]
+
+dependencies = [
+    "anthropic>=0.40.0,<1.0.0",
+    "httpx>=0.27.0,<1.0.0",
+    "beautifulsoup4>=4.12.0,<5.0.0",
+    "lxml>=5.0.0,<6.0.0",
+    "rank-bm25>=0.2.2,<1.0.0",
+    "pydantic>=2.5.0,<3.0.0",
+    "rich>=13.7.0,<14.0.0",
+    "python-dotenv>=1.0.0,<2.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=23.0.0",
+    "flake8>=6.0.0",
+    "mypy>=1.0.0",
+]
+api = [
+    "fastapi>=0.100.0",
+    "uvicorn>=0.23.0",
+]
+cli = [
+    "click>=8.1.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/AnmollCodes/support-triage-agent"
+Documentation = "https://github.com/AnmollCodes/support-triage-agent#readme"
+Repository = "https://github.com/AnmollCodes/support-triage-agent.git"
+Issues = "https://github.com/AnmollCodes/support-triage-agent/issues"
+
+[tool.setuptools]
+packages = ["code"]
+
+[tool.black]
+line-length = 100
+target-version = ["py310"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "--cov=code --cov-report=html --cov-report=term-missing"
+
+[tool.coverage.run]
+source = ["code"]
+omit = [
+    "*/tests/*",
+    "*/venv/*",
+]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
