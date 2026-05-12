@@ -185,18 +185,41 @@ class TriageAgent:
 
     def __init__(
         self,
-        retriever: HybridRetriever,
+        retriever: Optional[HybridRetriever] = None,
         cfg: AgentConfig = AGENT_CFG,
     ) -> None:
         if not ANTHROPIC_API_KEY:
             raise EnvironmentError(
                 "ANTHROPIC_API_KEY is not set. Export it before running."
             )
+        
+        # Auto-initialize retriever if not provided
+        if retriever is None:
+            from corpus import load_or_build_corpus
+            from config import RETRIEVER_CFG
+            chunks = load_or_build_corpus(force_scrape=False)
+            retriever = HybridRetriever(chunks, RETRIEVER_CFG)
+        
         self.retriever = retriever
         self.cfg       = cfg
         self._client   = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
     # ── Main entry point ──────────────────────────────────────────
+
+    def process(self, ticket: SupportTicket | dict) -> TriageResult:
+        """
+        Process a support ticket (wrapper for triage that handles dict input).
+        
+        Args:
+            ticket: Either a SupportTicket object or a dict with ticket data
+        
+        Returns:
+            TriageResult with triage decision and response
+        """
+        # Convert dict to SupportTicket if needed
+        if isinstance(ticket, dict):
+            ticket = SupportTicket(**ticket)
+        return self.triage(ticket)
 
     def triage(self, ticket: SupportTicket) -> TriageResult:
         """Process a single support ticket and return a TriageResult."""
@@ -336,3 +359,10 @@ class TriageAgent:
             justification = "Unexpected error in LLM call.",
             request_type  = "product_issue",
         )
+
+
+# ─────────────────────────────────────────────────────────────────
+# Backwards compatibility alias
+# ─────────────────────────────────────────────────────────────────
+
+SupportTriageAgent = TriageAgent

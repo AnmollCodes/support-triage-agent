@@ -6,34 +6,38 @@ import time
 import sys
 import os
 import csv
-from pathlib import Path
 import statistics
+from typing import Dict, List, Any, Optional, TYPE_CHECKING
 
 # Add code directory to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'code'))
+code_dir = os.path.join(os.path.dirname(__file__), 'code')
+sys.path.insert(0, code_dir)
+
+if TYPE_CHECKING:
+    from agent import SupportTriageAgent
 
 from agent import SupportTriageAgent
 
 class Benchmarks:
-    def __init__(self):
-        self.agent = SupportTriageAgent()
-        self.results = {}
+    def __init__(self) -> None:
+        self.agent: SupportTriageAgent = SupportTriageAgent()
+        self.results: Dict[str, Any] = {}
     
-    def benchmark_single_ticket(self, iterations=10):
+    def benchmark_single_ticket(self, iterations: int = 10) -> None:
         """Benchmark single ticket processing"""
         print("📊 Benchmarking single ticket processing...")
         
-        ticket = {
+        ticket: Dict[str, str] = {
             'issue': 'I lost access to my account and cannot login',
             'subject': 'Account access lost',
             'company': 'Claude'
         }
         
-        times = []
+        times: List[float] = []
         for i in range(iterations):
-            start = time.time()
+            start: float = time.time()
             self.agent.process(ticket)
-            elapsed = time.time() - start
+            elapsed: float = time.time() - start
             times.append(elapsed)
             print(f"  Iteration {i+1}/{iterations}: {elapsed*1000:.2f}ms")
         
@@ -45,28 +49,30 @@ class Benchmarks:
             'stdev': statistics.stdev(times) if len(times) > 1 else 0,
         }
     
-    def benchmark_batch_processing(self, batch_sizes=[10, 50, 100]):
+    def benchmark_batch_processing(self, batch_sizes: Optional[List[int]] = None) -> None:
         """Benchmark batch processing"""
+        if batch_sizes is None:
+            batch_sizes = [10, 50, 100]
         print("\n📊 Benchmarking batch processing...")
         
-        base_ticket = {
+        base_ticket: Dict[str, str] = {
             'issue': 'I cannot access my account',
             'subject': 'Access issue',
             'company': 'Claude'
         }
         
         for batch_size in batch_sizes:
-            tickets = [base_ticket.copy() for _ in range(batch_size)]
+            tickets: List[Dict[str, str]] = [base_ticket.copy() for _ in range(batch_size)]
             
-            start = time.time()
-            results = []
+            start: float = time.time()
+            results: List[Any] = []
             for ticket in tickets:
-                result = self.agent.process(ticket)
+                result: Any = self.agent.process(ticket)
                 results.append(result)
-            elapsed = time.time() - start
+            elapsed: float = time.time() - start
             
-            avg_per_ticket = elapsed / batch_size
-            throughput = batch_size / elapsed
+            avg_per_ticket: float = elapsed / batch_size
+            throughput: float = batch_size / elapsed
             
             print(f"  Batch size {batch_size}: {elapsed:.2f}s ({throughput:.1f} tickets/sec, {avg_per_ticket*1000:.2f}ms per ticket)")
             
@@ -76,11 +82,11 @@ class Benchmarks:
                 'throughput': throughput,
             }
     
-    def benchmark_different_companies(self):
+    def benchmark_different_companies(self) -> None:
         """Benchmark processing for different companies"""
         print("\n📊 Benchmarking different company domains...")
         
-        tickets = {
+        tickets: Dict[str, Dict[str, str]] = {
             'Claude': {
                 'issue': 'I lost access to my workspace',
                 'subject': 'Claude workspace access',
@@ -99,14 +105,14 @@ class Benchmarks:
         }
         
         for company, ticket in tickets.items():
-            times = []
+            times: List[float] = []
             for _ in range(5):
-                start = time.time()
+                start: float = time.time()
                 self.agent.process(ticket)
-                elapsed = time.time() - start
+                elapsed: float = time.time() - start
                 times.append(elapsed)
             
-            avg_time = statistics.mean(times)
+            avg_time: float = statistics.mean(times)
             print(f"  {company}: {avg_time*1000:.2f}ms average")
             
             self.results[f'company_{company}'] = {
@@ -115,14 +121,14 @@ class Benchmarks:
                 'max_time': max(times),
             }
     
-    def benchmark_memory_usage(self):
+    def benchmark_memory_usage(self) -> None:
         """Benchmark memory consumption"""
         print("\n📊 Benchmarking memory usage...")
         
         import tracemalloc
         
         # Warm up
-        ticket = {
+        ticket: Dict[str, str] = {
             'issue': 'Test',
             'subject': 'Test',
             'company': 'Claude'
@@ -135,6 +141,8 @@ class Benchmarks:
         for _ in range(10):
             self.agent.process(ticket)
         
+        current: int
+        peak: int
         current, peak = tracemalloc.get_traced_memory()
         tracemalloc.stop()
         
@@ -146,7 +154,7 @@ class Benchmarks:
             'peak': peak,
         }
     
-    def print_summary(self):
+    def print_summary(self) -> None:
         """Print summary of all benchmarks"""
         print("\n" + "="*60)
         print("📈 BENCHMARK SUMMARY")
@@ -154,7 +162,7 @@ class Benchmarks:
         
         # Single ticket
         if 'single_ticket' in self.results:
-            st = self.results['single_ticket']
+            st: Dict[str, Any] = self.results['single_ticket']
             print("⏱️  Single Ticket Processing:")
             print(f"   Mean: {st['mean']*1000:.2f}ms")
             print(f"   Min: {st['min']*1000:.2f}ms")
@@ -165,7 +173,7 @@ class Benchmarks:
         print("📦 Batch Processing:")
         for key, val in self.results.items():
             if key.startswith('batch_'):
-                batch_size = key.split('_')[1]
+                batch_size: str = key.split('_')[1]
                 print(f"   Batch {batch_size}: {val['throughput']:.1f} tickets/sec")
         print()
         
@@ -173,18 +181,18 @@ class Benchmarks:
         print("🏢 By Company:")
         for key, val in self.results.items():
             if key.startswith('company_'):
-                company = key.split('company_')[1]
+                company: str = key.split('company_')[1]
                 print(f"   {company}: {val['avg_time']*1000:.2f}ms avg")
         print()
         
         # Memory
         if 'memory' in self.results:
-            mem = self.results['memory']
+            mem: Dict[str, int] = self.results['memory']
             print("💾 Memory Usage:")
             print(f"   Current: {mem['current'] / 1024 / 1024:.2f} MB")
             print(f"   Peak: {mem['peak'] / 1024 / 1024:.2f} MB\n")
     
-    def save_results(self, filename='benchmarks_results.csv'):
+    def save_results(self, filename: str = 'benchmarks_results.csv') -> None:
         """Save results to CSV"""
         print(f"\n✓ Saving results to {filename}...")
         
@@ -198,12 +206,12 @@ class Benchmarks:
         
         print(f"✓ Results saved")
 
-def run_full_benchmark():
+def run_full_benchmark() -> None:
     """Run complete benchmark suite"""
     print("🚀 Support Triage Agent - Performance Benchmark Suite")
     print("="*60 + "\n")
     
-    bench = Benchmarks()
+    bench: Benchmarks = Benchmarks()
     
     # Run benchmarks
     bench.benchmark_single_ticket(iterations=5)

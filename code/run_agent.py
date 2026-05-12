@@ -29,6 +29,13 @@ import time
 from pathlib import Path
 from typing import List
 
+# ── Handle Windows UTF-8 encoding for Rich ────────────────────────────────
+if sys.platform == 'win32':
+    # Force UTF-8 output on Windows to prevent Unicode errors with Rich
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+
 # ── Path setup: works whether run from project root OR code/ directory ──────
 _THIS_FILE  = Path(__file__).resolve()
 _CODE_DIR   = _THIS_FILE.parent

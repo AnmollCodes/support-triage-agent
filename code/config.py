@@ -86,6 +86,7 @@ class ScraperConfig:
     request_delay: float = 0.5       # seconds between requests
     timeout: float = 15.0
     max_concurrent: int = 5
+    chunk_size: int = 800            # text chunk size for splitting
     user_agent: str = (
         "Mozilla/5.0 (compatible; SupportTriageBot/1.0; "
         "+https://github.com/interviewstreet/hackerrank-orchestrate-may26)"

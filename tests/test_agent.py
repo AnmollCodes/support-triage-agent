@@ -8,7 +8,8 @@ import os
 from pathlib import Path
 
 # Add code directory to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'code'))
+code_dir = os.path.join(os.path.dirname(__file__), '..', 'code')
+sys.path.insert(0, code_dir)
 
 # Import modules to test
 from models import ClassificationModel, SentimentAnalyzer, UrgencyTier
