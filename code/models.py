@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from enum import Enum
 from typing import List, Optional
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 
 
 class TicketStatus(str, Enum):
@@ -55,13 +55,15 @@ class SupportTicket(BaseModel):
     subject: str = ""
     company: str = "None"
 
-    @validator("subject", "company", pre=True, always=True)
+    @field_validator("subject", "company", mode="before")
+    @classmethod
     def coerce_none_str(cls, v):
         if v is None or isinstance(v, float):
             return ""
         return str(v).strip()
 
-    @validator("issue", pre=True, always=True)
+    @field_validator("issue", mode="before")
+    @classmethod
     def coerce_issue(cls, v):
         if v is None:
             return ""
