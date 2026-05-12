@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Environment variables (NEVER commit your API key)
+.env
+
+# Corpus cache (large, auto-regenerated)
+data/corpus_cache.jsonl
+
+# Output files (generated, not source)
+output/
+support_issues/output.csv
+support_issues/analytics_report.csv
+
+# IDE
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
