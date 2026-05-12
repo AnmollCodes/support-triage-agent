@@ -7,16 +7,14 @@ import sys
 import os
 import csv
 import statistics
-from typing import Dict, List, Any, Optional, TYPE_CHECKING
+from typing import Dict, List, Any, Optional
 
 # Add code directory to path
 code_dir = os.path.join(os.path.dirname(__file__), 'code')
 sys.path.insert(0, code_dir)
 
-if TYPE_CHECKING:
-    from agent import SupportTriageAgent
-
-from agent import SupportTriageAgent
+# Now import agent module after path is set
+from agent import SupportTriageAgent  # type: ignore[import]
 
 class Benchmarks:
     def __init__(self) -> None:
@@ -36,7 +34,7 @@ class Benchmarks:
         times: List[float] = []
         for i in range(iterations):
             start: float = time.time()
-            self.agent.process(ticket)
+            self.agent.process(ticket)  # type: ignore[attr-defined]
             elapsed: float = time.time() - start
             times.append(elapsed)
             print(f"  Iteration {i+1}/{iterations}: {elapsed*1000:.2f}ms")
@@ -67,7 +65,7 @@ class Benchmarks:
             start: float = time.time()
             results: List[Any] = []
             for ticket in tickets:
-                result: Any = self.agent.process(ticket)
+                result: Any = self.agent.process(ticket)  # type: ignore[attr-defined,misc]
                 results.append(result)
             elapsed: float = time.time() - start
             
@@ -108,7 +106,7 @@ class Benchmarks:
             times: List[float] = []
             for _ in range(5):
                 start: float = time.time()
-                self.agent.process(ticket)
+                self.agent.process(ticket)  # type: ignore[attr-defined]
                 elapsed: float = time.time() - start
                 times.append(elapsed)
             
@@ -133,13 +131,13 @@ class Benchmarks:
             'subject': 'Test',
             'company': 'Claude'
         }
-        self.agent.process(ticket)
+        self.agent.process(ticket)  # type: ignore[attr-defined]
         
         # Measure
         tracemalloc.start()
         
         for _ in range(10):
-            self.agent.process(ticket)
+            self.agent.process(ticket)  # type: ignore[attr-defined]
         
         current: int
         peak: int
